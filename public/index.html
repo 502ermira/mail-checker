@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mailcheck</title>
+<style>
+  :root {
+    --bg: #f3f5f2; --panel: #ffffff; --ink: #1c2420; --muted: #64706a;
+    --line: #d9dfda; --accent: #1f6f50; --accent-ink: #ffffff;
+    --good: #1f6f50; --bad: #b3361f; --warn: #9a6a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121715; --panel: #1a211e; --ink: #e8eee9; --muted: #92a098;
+            --line: #2c3631; --accent: #4fb98c; --accent-ink: #0d1411;
+            --good: #4fb98c; --bad: #ef7b63; --warn: #e0b04a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.5 Georgia, "Iowan Old Style", "Times New Roman", serif; }
+  h1, h2, button, input, label, th, .tag { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 40px 20px 80px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; margin-bottom: 20px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
+  input { width: 100%; padding: 10px 12px; font-size: 16px; color: var(--ink); background: var(--bg);
+          border: 1px solid var(--line); border-radius: 4px; }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row { display: flex; gap: 10px; }
+  .row > input { flex: 1; }
+  button { padding: 10px 16px; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--accent-ink);
+           background: var(--accent); border: 0; border-radius: 4px; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
+  .msg { min-height: 22px; margin-top: 10px; font-size: 14px; font-family: "Segoe UI", system-ui, sans-serif; }
+  .msg.err { color: var(--bad); }
+  .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; }
+  .balance { font: 600 28px "Segoe UI", system-ui, sans-serif; }
+  .balance small { font-size: 14px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  td { padding: 8px 4px; border-bottom: 1px solid var(--line); word-break: break-all; }
+  .tag { font-size: 13px; font-weight: 600; }
+  .valid { color: var(--good); } .invalid, .bad_format { color: var(--bad); }
+  .catch_all, .unknown { color: var(--warn); }
+  .hidden { display: none; }
+  .empty { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mailcheck</h1>
+  <p class="sub">Find out whether an email address can receive mail.</p>
+
+  <section id="auth">
+    <h2>Log in or create an account</h2>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="email">
+    <label for="password">Password (8+ characters)</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <div class="actions">
+      <button id="login">Log in</button>
+      <button id="signup" class="ghost">Create account</button>
+    </div>
+    <div id="authMsg" class="msg" role="status"></div>
+  </section>
+
+  <div id="app" class="hidden">
+    <div class="top">
+      <div class="balance"><span id="credits">0</span><small>credits</small></div>
+      <button id="logout" class="ghost">Log out</button>
+    </div>
+
+    <section>
+      <h2>Check an email address</h2>
+      <div class="row">
+        <input id="checkEmail" type="email" placeholder="name@example.com" aria-label="Email address to check">
+        <button id="check">Check (1 credit)</button>
+      </div>
+      <div id="checkMsg" class="msg" role="status"></div>
+    </section>
+
+    <section>
+      <h2>Recent checks</h2>
+      <div id="history"></div>
+    </section>
+
+    <section id="admin" class="hidden">
+      <h2>Add credits to a customer</h2>
+      <div class="row">
+        <input id="grantEmail" type="email" placeholder="customer@example.com" aria-label="Customer email">
+        <input id="grantAmount" type="number" placeholder="Credits" aria-label="Number of credits" style="max-width:120px">
+      </div>
+      <div class="actions"><button id="grant">Add credits</button></div>
+      <div id="grantMsg" class="msg" role="status"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const LABELS = { valid: 'Valid', invalid: 'Invalid', catch_all: 'Catch-all (can\'t confirm)', unknown: 'Unknown', bad_format: 'Bad format' };
+
+async function api(path, body) {
+  const res = await fetch('/api/' + path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed.');
+  return data;
+}
+function say(id, text, isErr) { const el = $(id); el.textContent = text; el.className = 'msg' + (isErr ? ' err' : ''); }
+
+async function refresh() {
+  try {
+    const me = await api('me');
+    $('auth').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    $('credits').textContent = me.credits.toLocaleString();
+    $('admin').classList.toggle('hidden', !me.isAdmin);
+    const rows = await api('history');
+    $('history').innerHTML = rows.length
+      ? '<table><tr><th>Email</th><th>Result</th></tr>' + rows.map(r =>
+          `<tr><td></td><td><span class="tag ${r.status}">${LABELS[r.status] || r.status}</span></td></tr>`).join('') + '</table>'
+      : '<p class="empty">No checks yet. Enter an address above to run your first one.</p>';
+    // fill emails safely (textContent, not innerHTML)
+    [...$('history').querySelectorAll('tr')].slice(1).forEach((tr, i) => tr.firstChild.textContent = rows[i].email);
+  } catch {
+    $('auth').classList.remove('hidden');
+    $('app').classList.add('hidden');
+  }
+}
+
+async function auth(kind) {
+  try { await api(kind, { email: $('email').value, password: $('password').value }); say('authMsg', ''); await refresh(); }
+  catch (e) { say('authMsg', e.message, true); }
+}
+$('login').onclick = () => auth('login');
+$('signup').onclick = () => auth('signup');
+$('logout').onclick = async () => { await api('logout', {}); await refresh(); };
+
+$('check').onclick = async () => {
+  say('checkMsg', 'Checking…');
+  try {
+    const r = await api('verify', { email: $('checkEmail').value });
+    say('checkMsg', `${r.email}: ${LABELS[r.status] || r.status}`);
+    await refresh();
+  } catch (e) { say('checkMsg', e.message, true); }
+};
+
+$('grant').onclick = async () => {
+  try {
+    const r = await api('admin/grant', { email: $('grantEmail').value, amount: $('grantAmount').value });
+    say('grantMsg', `Done. That customer now has ${r.credits.toLocaleString()} credits.`);
+    await refresh();
+  } catch (e) { say('grantMsg', e.message, true); }
+};
+
+refresh();
+</script>
+</body>
+</html>

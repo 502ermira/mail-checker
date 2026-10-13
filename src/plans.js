@@ -1,9 +1,36 @@
 export const CURRENCY = 'usd';
- 
+
 export const PLANS = [
-  { id: 'pack_1',  credits: 1,  priceCents: 100  },
-  { id: 'pack_5',  credits: 5,  priceCents: 500  },
-  { id: 'pack_10', credits: 10, priceCents: 1000 },
+  { id: 'pack_3', priceCents: 300, credits: 3, bonusCredits: 2 }, // 5 total
+  { id: 'pack_5', priceCents: 500, credits: 5, bonusCredits: 3 }, // 8 total
+  { id: 'pack_7', priceCents: 700, credits: 7, bonusCredits: 5 }, // 12 total
 ];
- 
-export const getPlan = (id) => PLANS.find((p) => p.id === id) || null;
+
+export const CUSTOM = {
+  id: 'custom',
+  minDollars: 1,
+  maxDollars: 500,
+  creditsPerDollar: 1,
+};
+
+export function resolvePurchase(planId, amount) {
+  if (planId === CUSTOM.id) {
+    const dollars = Number(amount);
+    if (!Number.isInteger(dollars) || dollars < CUSTOM.minDollars || dollars > CUSTOM.maxDollars)
+      return { error: `Enter a whole amount from ${CUSTOM.minDollars} to ${CUSTOM.maxDollars}.` };
+    return {
+      planId: CUSTOM.id,
+      priceCents: dollars * 100,
+      bonusCredits: 0,
+      totalCredits: dollars * CUSTOM.creditsPerDollar,
+    };
+  }
+  const plan = PLANS.find((p) => p.id === planId);
+  if (!plan) return { error: 'Unknown plan.' };
+  return {
+    planId: plan.id,
+    priceCents: plan.priceCents,
+    bonusCredits: plan.bonusCredits,
+    totalCredits: plan.credits + plan.bonusCredits,
+  };
+}

@@ -2,11 +2,11 @@ import db from './db.js';
 import { addCredits } from './credits.js';
 import { CURRENCY } from './plans.js';
 
-export function createOrder(userId, plan, provider) {
+export function createOrder(userId, purchase, provider) {
   const info = db.prepare(
-    'INSERT INTO orders (user_id, plan_id, credits, price_cents, currency, provider) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(userId, plan.id, plan.credits, plan.priceCents, CURRENCY, provider);
-  return { id: Number(info.lastInsertRowid), userId, credits: plan.credits, priceCents: plan.priceCents, currency: CURRENCY };
+    'INSERT INTO orders (user_id, plan_id, credits, bonus_credits, price_cents, currency, provider) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(userId, purchase.planId, purchase.totalCredits, purchase.bonusCredits, purchase.priceCents, CURRENCY, provider);
+  return { id: Number(info.lastInsertRowid), userId, credits: purchase.totalCredits };
 }
 
 export const fulfillOrder = db.transaction((orderId, providerRef = null) => {
@@ -29,6 +29,6 @@ export function setProviderRef(orderId, ref) {
 
 export function listOrders(userId) {
   return db.prepare(
-    'SELECT id, credits, price_cents, currency, status, created_at FROM orders WHERE user_id = ? ORDER BY id DESC LIMIT 20'
+    'SELECT id, credits, bonus_credits, price_cents, currency, status, created_at FROM orders WHERE user_id = ? ORDER BY id DESC LIMIT 20'
   ).all(userId);
 }

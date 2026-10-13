@@ -1,6 +1,6 @@
 import rateLimit from 'express-rate-limit';
 import { getBalance } from './credits.js';
-import { PLANS, CURRENCY, getPlan } from './plans.js';
+import { PLANS, CUSTOM, CURRENCY, resolvePurchase } from './plans.js';
 import { createOrder, fulfillOrder, failOrder, setProviderRef, listOrders } from './billing.js';
 import { paymentsAvailable, createCheckout, isTestMode } from './payments.js';
 
@@ -10,16 +10,18 @@ export function registerBillingRoutes(app, requireAuth) {
   app.get('/api/plans', (req, res) => {
     res.json({
       testMode: isTestMode(),
-      plans: PLANS.map((p) => ({ ...p, currency: CURRENCY })),
+      currency: CURRENCY,
+      plans: PLANS.map((p) => ({ ...p, totalCredits: p.credits + p.bonusCredits })),
+      custom: CUSTOM,
     });
   });
 
   app.post('/api/purchase', requireAuth, purchaseLimiter, async (req, res) => {
-    const plan = getPlan(String(req.body.planId || ''));
-    if (!plan) return res.status(400).json({ error: 'Unknown plan.' });
+    const purchase = resolvePurchase(String(req.body.planId || ''), req.body.amount);
+    if (purchase.error) return res.status(400).json({ error: purchase.error });
     if (!paymentsAvailable()) return res.status(503).json({ error: 'Purchases are not available right now.' });
 
-    const order = createOrder(req.user.id, plan, process.env.PAYMENT_PROVIDER || 'test');
+    const order = createOrder(req.user.id, purchase, process.env.PAYMENT_PROVIDER || 'test');
     try {
       const checkout = await createCheckout(order);
 

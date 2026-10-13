@@ -82,4 +82,8 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 `);
 
+const orderCols = db.prepare('PRAGMA table_info(orders)').all().map((c) => c.name);
+if (!orderCols.includes('bonus_credits'))
+  db.exec('ALTER TABLE orders ADD COLUMN bonus_credits INTEGER NOT NULL DEFAULT 0');
+
 export default db;

@@ -82,6 +82,10 @@
       <h2>Buy credits</h2>
       <p id="testNote" class="hint hidden">Test mode: no payment is taken, credits are added instantly.</p>
       <div id="plans" class="row"></div>
+      <div class="row">
+        <input id="customAmount" type="number" step="1" placeholder="Amount in dollars" aria-label="Custom amount in dollars" style="max-width:160px">
+        <button id="customBuy">Add funds (1 credit per $1, no bonus)</button>
+      </div>
       <div id="buyMsg" class="msg" role="status"></div>
       <div id="orders"></div>
     </section>
@@ -259,30 +263,35 @@ const money = (cents, cur) =>
 
 async function loadPlans() {
   try {
-    const { plans, testMode } = await api('plans');
+    const { plans, testMode, custom } = await api('plans');
     $('testNote').classList.toggle('hidden', !testMode);
+    $('customAmount').min = custom.minDollars;
+    $('customAmount').max = custom.maxDollars;
     const box = $('plans');
     box.textContent = '';
     for (const p of plans) {
       const b = document.createElement('button');
-      b.textContent = `${p.credits.toLocaleString()} credits for ${money(p.priceCents, p.currency)}`;
-      b.onclick = () => buy(p, b);
+      b.textContent = `${money(p.priceCents, 'usd')} → ${p.totalCredits.toLocaleString()} credits (includes ${p.bonusCredits} bonus)`;
+      b.onclick = () => buy({ planId: p.id }, b);
       box.appendChild(b);
     }
   } catch { /* ignore */ }
 }
 
-async function buy(plan, btn) {
-  btn.disabled = true;
+async function buy(payload, btn) {
+  btn.disabled = true; 
   say('buyMsg', 'Processing…');
   try {
-    const r = await api('purchase', { planId: plan.id });
-    if (r.redirectUrl) { location.href = r.redirectUrl; return; } // for the future real gateway
+    const r = await api('purchase', payload);
+    if (r.redirectUrl) { location.href = r.redirectUrl; return; }
     say('buyMsg', `Added ${r.added.toLocaleString()} credits. You now have ${r.credits.toLocaleString()}.`);
     await refresh();
   } catch (e) { say('buyMsg', e.message, true); }
   btn.disabled = false;
 }
+
+$('customBuy').onclick = () =>
+  buy({ planId: 'custom', amount: Number($('customAmount').value) }, $('customBuy'));
 
 async function loadOrders() {
   const rows = await api('orders');
@@ -294,7 +303,7 @@ async function loadOrders() {
   for (const o of rows) {
     const tr = document.createElement('tr');
     const when = new Date(o.created_at.replace(' ', 'T') + 'Z').toLocaleString();
-    for (const v of [when, o.credits.toLocaleString(), money(o.price_cents, o.currency), o.status]) {
+    for (const v of [when, o.bonus_credits ? `${o.credits.toLocaleString()} (incl. ${o.bonus_credits} bonus)` : o.credits.toLocaleString(), money(o.price_cents, o.currency), o.status]) {
       const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
     }
     table.appendChild(tr);

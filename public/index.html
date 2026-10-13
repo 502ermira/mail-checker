@@ -46,6 +46,11 @@
   .valid { color: var(--good); } .invalid, .bad_format { color: var(--bad); }
   .catch_all, .unknown { color: var(--warn); }
   .hidden { display: none; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  a.btn, button.small { font: 600 13px 'Segoe UI', system-ui, sans-serif; padding: 5px 10px; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); background: transparent; text-decoration: none; cursor: pointer; }
+  .hint { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+  td.act { white-space: nowrap; }
   .empty { color: var(--muted); font-size: 14px; }
 </style>
 </head>
@@ -80,6 +85,17 @@
         <button id="check">Check (1 credit)</button>
       </div>
       <div id="checkMsg" class="msg" role="status"></div>
+    </section>
+
+    <section>
+      <h2>Check a list</h2>
+      <p class="hint">Upload a CSV file. Each address uses 1 credit, taken up front. Wrong-format rows, results we can't determine, and any errors are refunded when the job ends.</p>
+      <div class="row">
+        <input id="csvFile" type="file" accept=".csv,.txt,text/csv,text/plain" aria-label="CSV file">
+        <button id="upload">Start check</button>
+      </div>
+      <div id="uploadMsg" class="msg" role="status"></div>
+      <div id="jobs"></div>
     </section>
 
     <section>
@@ -127,7 +143,6 @@ async function refresh() {
       ? '<table><tr><th>Email</th><th>Result</th></tr>' + rows.map(r =>
           `<tr><td></td><td><span class="tag ${r.status}">${LABELS[r.status] || r.status}</span></td></tr>`).join('') + '</table>'
       : '<p class="empty">No checks yet. Enter an address above to run your first one.</p>';
-    // fill emails safely (textContent, not innerHTML)
     [...$('history').querySelectorAll('tr')].slice(1).forEach((tr, i) => tr.firstChild.textContent = rows[i].email);
   } catch {
     $('auth').classList.remove('hidden');
@@ -160,7 +175,78 @@ $('grant').onclick = async () => {
   } catch (e) { say('grantMsg', e.message, true); }
 };
 
-refresh();
+let pollTimer = null;
+const STATUS_TEXT = { queued: 'Waiting', running: 'Checking', done: 'Finished', cancelled: 'Cancelled' };
+
+function renderJobs(jobs) {
+  const box = $('jobs');
+  box.textContent = '';
+  if (!jobs.length) return;
+  const table = document.createElement('table');
+  table.innerHTML = '<tr><th>File</th><th>Progress</th><th>Results</th><th></th></tr>';
+  for (const j of jobs) {
+    const tr = document.createElement('tr');
+    const pct = j.total ? Math.round((j.processed / j.total) * 100) : 0;
+
+    const tdFile = document.createElement('td');
+    tdFile.textContent = j.filename;
+    const tdProg = document.createElement('td');
+    tdProg.textContent = `${STATUS_TEXT[j.status] || j.status}: ${j.processed.toLocaleString()} of ${j.total.toLocaleString()}`;
+    const bar = document.createElement('div'); bar.className = 'bar';
+    const fill = document.createElement('i'); fill.style.width = pct + '%'; bar.appendChild(fill);
+    tdProg.appendChild(bar);
+
+    const tdRes = document.createElement('td');
+    tdRes.textContent = Object.entries(j.counts || {})
+      .map(([k, v]) => `${LABELS[k] || (k === 'error' ? 'Retry later' : k)} ${v.toLocaleString()}`).join(', ');
+
+    const tdAct = document.createElement('td'); tdAct.className = 'act';
+    const dl = document.createElement('a');
+    dl.className = 'btn'; dl.href = `/api/jobs/${j.id}/download`; dl.textContent = 'Download';
+    tdAct.appendChild(dl);
+    if (j.status === 'queued' || j.status === 'running') {
+      const cancel = document.createElement('button');
+      cancel.className = 'small'; cancel.textContent = 'Cancel'; cancel.style.marginLeft = '6px';
+      cancel.onclick = async () => { await api(`jobs/${j.id}/cancel`, {}); await refreshJobs(); await refresh(); };
+      tdAct.appendChild(cancel);
+    }
+    tr.append(tdFile, tdProg, tdRes, tdAct);
+    table.appendChild(tr);
+  }
+  box.appendChild(table);
+}
+
+async function refreshJobs() {
+  try {
+    const jobs = await api('jobs');
+    renderJobs(jobs);
+    const active = jobs.some((j) => j.status === 'queued' || j.status === 'running');
+    clearTimeout(pollTimer);
+    if (active) pollTimer = setTimeout(async () => { await refreshJobs(); await refreshCredits(); }, 2000);
+  } catch { /* logged out */ }
+}
+async function refreshCredits() {
+  try { $('credits').textContent = (await api('me')).credits.toLocaleString(); } catch {}
+}
+
+$('upload').onclick = async () => {
+  const file = $('csvFile').files[0];
+  if (!file) return say('uploadMsg', 'Choose a CSV file first.', true);
+  if (file.size > 9 * 1024 * 1024) return say('uploadMsg', 'File is too large (9 MB max).', true);
+  say('uploadMsg', 'Uploading…');
+  try {
+    const csv = await file.text();
+    const r = await api('jobs', { filename: file.name, csv });
+    const notes = [];
+    if (r.duplicatesRemoved) notes.push(`${r.duplicatesRemoved.toLocaleString()} duplicates removed`);
+    if (r.badFormat) notes.push(`${r.badFormat.toLocaleString()} wrong-format rows`);
+    say('uploadMsg', `Started: ${r.total.toLocaleString()} addresses${notes.length ? ' (' + notes.join(', ') + ')' : ''}.`);
+    $('csvFile').value = '';
+    await refresh(); await refreshJobs();
+  } catch (e) { say('uploadMsg', e.message, true); }
+};
+
+refresh().then(refreshJobs);
 </script>
 </body>
 </html>

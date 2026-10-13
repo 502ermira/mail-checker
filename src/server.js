@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 
 import db from './db.js';
 import { getBalance, addCredits, spendCredits } from './credits.js';
-import { verify } from './providers/mailVerifier.js';
+import { providerCredits } from './providers/mailVerifier.js';
+import { checkEmail, startWorker } from './worker.js';
+import { registerJobRoutes } from './jobRoutes.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me') {
   console.error('Set a real JWT_SECRET in your .env file.');
@@ -18,6 +20,7 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me') {
 
 const app = express();
 app.use(helmet({ contentSecurityPolicy: false }));
+app.use('/api/jobs', express.json({ limit: '10mb' }));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public')));
@@ -25,7 +28,6 @@ app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), '
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30 });
 
-// ---------- auth helpers ----------
 function setSession(res, user) {
   const token = jwt.sign({ uid: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
   res.cookie('session', token, {
@@ -53,7 +55,6 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// ---------- auth routes ----------
 app.post('/api/signup', authLimiter, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
@@ -88,7 +89,6 @@ app.get('/api/me', requireAuth, (req, res) => {
   res.json({ email: req.user.email, isAdmin: !!req.user.is_admin, credits: getBalance(req.user.id) });
 });
 
-// ---------- single email check ----------
 app.post('/api/verify', requireAuth, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
@@ -101,22 +101,25 @@ app.post('/api/verify', requireAuth, async (req, res) => {
   }
 
   try {
-    const status = await verify(email);
+    const { status, charged } = await checkEmail(email);
+    if (!charged) addCredits(req.user.id, 1, 'refund_not_charged', email); // free results are free for customers too
     db.prepare('INSERT INTO checks (user_id, email, status) VALUES (?, ?, ?)').run(req.user.id, email, status);
     res.json({ email, status, credits: getBalance(req.user.id) });
   } catch (e) {
     addCredits(req.user.id, 1, 'refund_provider_error', email); // customer never pays for our failures
     console.error('provider error:', e.message);
+    if (e.alertAdmin) console.error('!!! ACTION NEEDED: top up or fix your provider account:', e.message);
     res.status(502).json({ error: 'Verification is temporarily unavailable. Your credit was refunded.' });
   }
 });
+
+registerJobRoutes(app, requireAuth);
 
 app.get('/api/history', requireAuth, (req, res) => {
   const rows = db.prepare('SELECT email, status, created_at FROM checks WHERE user_id = ? ORDER BY id DESC LIMIT 50').all(req.user.id);
   res.json(rows);
 });
 
-// ---------- admin: manual credits (replaced by payments later) ----------
 app.post('/api/admin/grant', requireAuth, requireAdmin, (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const amount = parseInt(req.body.amount, 10);
@@ -128,11 +131,18 @@ app.post('/api/admin/grant', requireAuth, requireAdmin, (req, res) => {
   res.json({ ok: true, credits: getBalance(user.id) });
 });
 
-// ---------- errors ----------
+app.get('/api/admin/provider-credits', requireAuth, requireAdmin, async (req, res) => {
+  try { res.json({ credits: await providerCredits() }); }
+  catch { res.status(502).json({ error: 'Could not reach provider.' }); }
+});
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Something went wrong.' });
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Running on http://localhost:${port}`));
+app.listen(port, () => {
+  console.log(`Running on http://localhost:${port}`);
+  startWorker();
+});

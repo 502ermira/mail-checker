@@ -6,65 +6,157 @@
 <title>Mailcheck</title>
 <style>
   :root {
-    --bg: #f3f5f2; --panel: #ffffff; --ink: #1c2420; --muted: #64706a;
-    --line: #d9dfda; --accent: #1f6f50; --accent-ink: #ffffff;
-    --good: #1f6f50; --bad: #b3361f; --warn: #9a6a00;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #121715; --panel: #1a211e; --ink: #e8eee9; --muted: #92a098;
-            --line: #2c3631; --accent: #4fb98c; --accent-ink: #0d1411;
-            --good: #4fb98c; --bad: #ef7b63; --warn: #e0b04a; }
+    color-scheme: light;
+    --bg: #f7f8fc;
+    --panel: #ffffff;
+    --ink: #182230;
+    --muted: #667085;
+    --line: #e5e9f2;
+    --accent: #6558e8;
+    --accent-hover: #5145cf;
+    --accent-soft: #f0efff;
+    --accent-ink: #ffffff;
+    --good: #16845b;
+    --good-bg: #e8f7ef;
+    --bad: #c23c52;
+    --bad-bg: #fff0f2;
+    --warn: #9a6700;
+    --warn-bg: #fff7df;
+    --shadow: 0 12px 34px rgba(31, 42, 68, .06);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 16px/1.5 Georgia, "Iowan Old Style", "Times New Roman", serif; }
-  h1, h2, button, input, label, th, .tag { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
-  main { max-width: 640px; margin: 0 auto; padding: 40px 20px 80px; }
-  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.01em; }
-  h2 { font-size: 17px; margin: 0 0 12px; }
-  .sub { color: var(--muted); margin: 0 0 28px; }
-  section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 20px; margin-bottom: 20px; }
-  label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
-  input { width: 100%; padding: 10px 12px; font-size: 16px; color: var(--ink); background: var(--bg);
-          border: 1px solid var(--line); border-radius: 4px; }
-  input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .row { display: flex; gap: 10px; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse at 10% 0%, rgba(101, 88, 232, .08), transparent 36rem),
+      var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  h1, h2, h3, button, input, label, th, .tag { font-family: inherit; }
+  main { width: min(1120px, 100%); margin: 0 auto; padding: 42px 28px 76px; }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 30px; }
+  .brand-mark {
+    display: grid; place-items: center; width: 48px; height: 48px; flex: 0 0 48px;
+    border-radius: 15px; color: #fff; font-size: 21px; font-weight: 800;
+    background: linear-gradient(145deg, #8176ff, #594bd7);
+    box-shadow: 0 8px 18px rgba(101, 88, 232, .22);
+  }
+  h1 { font-size: clamp(27px, 4vw, 34px); line-height: 1.15; margin: 0 0 5px; letter-spacing: -.04em; }
+  h2 { font-size: 19px; line-height: 1.3; letter-spacing: -.02em; margin: 0 0 8px; }
+  .sub { color: var(--muted); margin: 0; font-size: 15px; }
+  section {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
+    padding: clamp(20px, 3vw, 30px); margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  section > h2 { margin-bottom: 18px; }
+  label { display: block; font-size: 13px; font-weight: 650; color: #475467; margin: 15px 0 7px; }
+  input {
+    min-width: 0; width: 100%; padding: 12px 14px; font-size: 15px; color: var(--ink);
+    background: #fff; border: 1px solid #d9dfeb; border-radius: 11px; outline: none;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  input::placeholder { color: #98a2b3; }
+  input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(101, 88, 232, .12); }
+  input[type="file"] { padding: 8px; background: #fafbff; }
+  input[type="file"]::file-selector-button {
+    border: 0; background: var(--accent-soft); color: var(--accent);
+    padding: 8px 11px; margin-right: 12px; border-radius: 7px; font-weight: 700; cursor: pointer;
+  }
+  .row { display: flex; align-items: center; gap: 12px; }
   .row > input { flex: 1; }
-  button { padding: 10px 16px; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--accent-ink);
-           background: var(--accent); border: 0; border-radius: 4px; }
-  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-  .actions { display: flex; gap: 10px; margin-top: 16px; }
-  .msg { min-height: 22px; margin-top: 10px; font-size: 14px; font-family: "Segoe UI", system-ui, sans-serif; }
+  button {
+    padding: 11px 16px; font-size: 14px; font-weight: 700; cursor: pointer;
+    color: var(--accent-ink); background: var(--accent); border: 1px solid transparent;
+    border-radius: 11px; white-space: nowrap; transition: background .18s, transform .18s, box-shadow .18s;
+  }
+  button:hover { background: var(--accent-hover); box-shadow: 0 5px 14px rgba(101, 88, 232, .18); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+  button:focus-visible, a:focus-visible { outline: 3px solid rgba(101, 88, 232, .3); outline-offset: 3px; }
+  button.ghost { background: #fff; color: #344054; border-color: var(--line); }
+  button.ghost:hover { background: #f8f9fc; box-shadow: none; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .msg { min-height: 22px; margin-top: 12px; font-size: 14px; color: var(--good); font-weight: 600; }
   .msg.err { color: var(--bad); }
-  .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; }
-  .balance { font: 600 28px "Segoe UI", system-ui, sans-serif; }
-  .balance small { font-size: 14px; color: var(--muted); font-weight: 400; margin-left: 6px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 4px; border-bottom: 1px solid var(--line); }
-  td { padding: 8px 4px; border-bottom: 1px solid var(--line); word-break: break-all; }
-  .tag { font-size: 13px; font-weight: 600; }
-  .valid { color: var(--good); } .invalid, .bad_format { color: var(--bad); }
-  .catch_all, .unknown { color: var(--warn); }
-  .hidden { display: none; }
-  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 6px; }
-  .bar > i { display: block; height: 100%; background: var(--accent); }
-  a.btn, button.small { font: 600 13px 'Segoe UI', system-ui, sans-serif; padding: 5px 10px; border: 1px solid var(--line); border-radius: 4px; color: var(--ink); background: transparent; text-decoration: none; cursor: pointer; }
-  .hint { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 0 0 22px; }
+  .balance { display: flex; align-items: baseline; gap: 8px; font-size: 29px; font-weight: 800; letter-spacing: -.04em; }
+  .balance small { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+  .tabs {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px;
+    padding: 7px; margin: 0 0 24px; background: #eceef6; border: 1px solid #e3e6f0; border-radius: 15px;
+  }
+  .tab {
+    display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px;
+    padding: 10px 12px; background: transparent; color: #667085; border: 0; border-radius: 10px;
+    font-size: 13px; white-space: normal;
+  }
+  .tab:hover { background: rgba(255,255,255,.65); color: var(--ink); box-shadow: none; }
+  .tab[aria-selected="true"] { background: #fff; color: var(--accent); box-shadow: 0 2px 8px rgba(31,42,68,.08); }
+  .tab-panel[hidden] { display: none; }
+  #plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 18px 0; }
+  #plans button {
+    min-height: 90px; padding: 18px; white-space: normal; text-align: left; line-height: 1.5;
+    background: #f8f7ff; color: #5145cf; border: 1px solid #e4e0ff; border-radius: 14px;
+  }
+  #plans button:hover { background: #f0efff; border-color: #bcb5ff; }
+  .hint { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; margin-top: 12px; }
+  #history, #jobs, #orders { max-width: 100%; overflow-x: auto; }
+  th { text-align: left; color: #667085; font-weight: 700; padding: 12px 10px; background: #f8f9fc; border-bottom: 1px solid var(--line); }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td { padding: 12px 10px; border-bottom: 1px solid var(--line); word-break: break-word; vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  .tag { display: inline-flex; align-items: center; font-size: 12px; font-weight: 750; padding: 4px 8px; border-radius: 999px; background: #f2f4f7; }
+  .valid { color: var(--good); background: var(--good-bg); }
+  .invalid, .bad_format { color: var(--bad); background: var(--bad-bg); }
+  .catch_all, .unknown { color: var(--warn); background: var(--warn-bg); }
+  .hidden { display: none !important; }
+  .bar { height: 7px; min-width: 90px; background: #eceef6; border-radius: 999px; overflow: hidden; margin-top: 8px; }
+  .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #8176ff, #594bd7); border-radius: inherit; }
+  a.btn, button.small { display: inline-flex; align-items: center; justify-content: center; font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: #475467; background: #fff; text-decoration: none; cursor: pointer; }
+  a.btn:hover, button.small:hover { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
   td.act { white-space: nowrap; }
-  .empty { color: var(--muted); font-size: 14px; }
+  .empty { color: var(--muted); font-size: 14px; padding: 12px 0; }
+  #auth { max-width: 520px; margin: 0 auto; }
+  #auth .actions button { flex: 1; }
+  #customAmount { max-width: 190px; }
+  #grantAmount { max-width: 150px; }
+  .section-intro { margin: -7px 0 22px; color: var(--muted); font-size: 14px; }
+  @media (max-width: 680px) {
+    main { padding: 28px 16px 48px; }
+    .brand { margin-bottom: 24px; }
+    .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tab { justify-content: flex-start; }
+    .row { align-items: stretch; flex-direction: column; }
+    .row > input { width: 100%; max-width: none !important; }
+    .row button { width: 100%; }
+    .top { align-items: center; }
+    section { border-radius: 16px; }
+    table { min-width: 540px; }
+    #history table { min-width: 360px; }
+  }
 </style>
 </head>
 <body>
 <main>
-  <h1>Mailcheck</h1>
-  <p class="sub">Find out whether an email address can receive mail.</p>
+  <header class="brand">
+    <div class="brand-mark" aria-hidden="true">M</div>
+    <div>
+      <h1>Mailcheck</h1>
+      <p class="sub">Email verification, made clear and simple.</p>
+    </div>
+  </header>
 
   <section id="auth">
-    <h2>Log in or create an account</h2>
+    <h2>Welcome to Mailcheck</h2>
+    <p class="section-intro">Log in or create an account to verify email addresses.</p>
     <label for="email">Email</label>
-    <input id="email" type="email" autocomplete="email">
+    <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
     <label for="password">Password (8+ characters)</label>
-    <input id="password" type="password" autocomplete="current-password">
+    <input id="password" type="password" autocomplete="current-password" placeholder="Enter your password">
     <div class="actions">
       <button id="login">Log in</button>
       <button id="signup" class="ghost">Create account</button>
@@ -74,56 +166,84 @@
 
   <div id="app" class="hidden">
     <div class="top">
-      <div class="balance"><span id="credits">0</span><small>credits</small></div>
+      <div class="balance"><span id="credits">0</span><small>credits available</small></div>
       <button id="logout" class="ghost">Log out</button>
     </div>
 
-    <section>
-      <h2>Buy credits</h2>
-      <p id="testNote" class="hint hidden">Test mode: no payment is taken, credits are added instantly.</p>
-      <div id="plans" class="row"></div>
-      <div class="row">
-        <input id="customAmount" type="number" step="1" placeholder="Amount in dollars" aria-label="Custom amount in dollars" style="max-width:160px">
-        <button id="customBuy">Add funds (1 credit per $1, no bonus)</button>
-      </div>
-      <div id="buyMsg" class="msg" role="status"></div>
-      <div id="orders"></div>
-    </section>
+    <nav class="tabs" role="tablist" aria-label="Mailcheck sections">
+      <button class="tab" id="tab-plans" role="tab" aria-selected="true" aria-controls="panel-plans" data-tab="plans">01&nbsp; Plans</button>
+      <button class="tab" id="tab-single" role="tab" aria-selected="false" aria-controls="panel-single" data-tab="single">02&nbsp; Single check</button>
+      <button class="tab" id="tab-batch" role="tab" aria-selected="false" aria-controls="panel-batch" data-tab="batch">03&nbsp; Batch verification</button>
+      <button class="tab" id="tab-profile" role="tab" aria-selected="false" aria-controls="panel-profile" data-tab="profile">04&nbsp; Profile</button>
+    </nav>
 
-    <section>
-      <h2>Check an email address</h2>
-      <div class="row">
-        <input id="checkEmail" type="email" placeholder="name@example.com" aria-label="Email address to check">
-        <button id="check">Check (1 credit)</button>
-      </div>
-      <div id="checkMsg" class="msg" role="status"></div>
-    </section>
+    <div id="panel-plans" class="tab-panel" role="tabpanel" aria-labelledby="tab-plans">
+      <section>
+        <h2>Choose your credit plan</h2>
+        <p class="section-intro">Pick a package or add a custom amount. Your available balance is shown above.</p>
+        <p id="testNote" class="hint hidden">Test mode: no payment is taken, credits are added instantly.</p>
+        <div id="plans" class="row"></div>
+        <div class="row">
+          <input id="customAmount" type="number" step="1" placeholder="Amount in dollars" aria-label="Custom amount in dollars" style="max-width:160px">
+          <button id="customBuy">Add funds (1 credit per $1, no bonus)</button>
+        </div>
+        <div id="buyMsg" class="msg" role="status"></div>
+      </section>
+      <section>
+        <h2>Order history</h2>
+        <div id="orders"></div>
+      </section>
+    </div>
 
-    <section>
-      <h2>Check a list</h2>
-      <p class="hint">Upload a CSV file. Each address uses 1 credit, taken up front. Wrong-format rows, results we can't determine, and any errors are refunded when the job ends.</p>
-      <div class="row">
-        <input id="csvFile" type="file" accept=".csv,.txt,text/csv,text/plain" aria-label="CSV file">
-        <button id="upload">Start check</button>
-      </div>
-      <div id="uploadMsg" class="msg" role="status"></div>
-      <div id="jobs"></div>
-    </section>
+    <div id="panel-single" class="tab-panel" role="tabpanel" aria-labelledby="tab-single" hidden>
+      <section>
+        <h2>Verify one email</h2>
+        <p class="section-intro">Enter an email address to check its deliverability status. Each check uses 1 credit.</p>
+        <div class="row">
+          <input id="checkEmail" type="email" placeholder="name@example.com" aria-label="Email address to check">
+          <button id="check">Check email · 1 credit</button>
+        </div>
+        <div id="checkMsg" class="msg" role="status"></div>
+      </section>
+      <section>
+        <h2>Recent checks</h2>
+        <p class="section-intro">Your latest single-email verification results.</p>
+        <div id="history"></div>
+      </section>
+    </div>
 
-    <section>
-      <h2>Recent checks</h2>
-      <div id="history"></div>
-    </section>
+    <div id="panel-batch" class="tab-panel" role="tabpanel" aria-labelledby="tab-batch" hidden>
+      <section>
+        <h2>Batch email verification</h2>
+        <p class="section-intro">Upload a CSV or text file to verify multiple addresses in one job.</p>
+        <p class="hint">Each address uses 1 credit, taken up front. Wrong-format rows, results we can't determine, and any errors are refunded when the job ends.</p>
+        <div class="row">
+          <input id="csvFile" type="file" accept=".csv,.txt,text/csv,text/plain" aria-label="CSV file">
+          <button id="upload">Start batch check</button>
+        </div>
+        <div id="uploadMsg" class="msg" role="status"></div>
+        <div id="jobs"></div>
+      </section>
+    </div>
 
-    <section id="admin" class="hidden">
-      <h2>Add credits to a customer</h2>
-      <div class="row">
-        <input id="grantEmail" type="email" placeholder="customer@example.com" aria-label="Customer email">
-        <input id="grantAmount" type="number" placeholder="Credits" aria-label="Number of credits" style="max-width:120px">
-      </div>
-      <div class="actions"><button id="grant">Add credits</button></div>
-      <div id="grantMsg" class="msg" role="status"></div>
-    </section>
+    <div id="panel-profile" class="tab-panel" role="tabpanel" aria-labelledby="tab-profile" hidden>
+      <section>
+        <h2>Account</h2>
+        <p class="section-intro">Your account details.</p>
+        <p><strong>Email:</strong> <span id="accEmail">—</span></p>
+        <p><strong>Credits:</strong> <span id="accCredits">0</span></p>
+      </section>
+      <section id="admin" class="hidden">
+        <h2>Customer credit management</h2>
+        <p class="section-intro">Admin tools</p>
+        <div class="row">
+          <input id="grantEmail" type="email" placeholder="customer@example.com" aria-label="Customer email">
+          <input id="grantAmount" type="number" placeholder="Credits" aria-label="Number of credits" style="max-width:120px">
+        </div>
+        <div class="actions"><button id="grant">Add credits</button></div>
+        <div id="grantMsg" class="msg" role="status"></div>
+      </section>
+    </div>
   </div>
 </main>
 
@@ -149,6 +269,8 @@ async function refresh() {
     $('auth').classList.add('hidden');
     $('app').classList.remove('hidden');
     $('credits').textContent = me.credits.toLocaleString();
+    $('accCredits').textContent = me.credits.toLocaleString();
+    $('accEmail').textContent = me.email || '—';
     $('admin').classList.toggle('hidden', !me.isAdmin);
     const rows = await api('history');
     $('history').innerHTML = rows.length
@@ -238,7 +360,11 @@ async function refreshJobs() {
   } catch { /* logged out */ }
 }
 async function refreshCredits() {
-  try { $('credits').textContent = (await api('me')).credits.toLocaleString(); } catch {}
+  try {
+    const credits = (await api('me')).credits.toLocaleString();
+    $('credits').textContent = credits;
+    $('accCredits').textContent = credits;
+  } catch {}
 }
 
 $('upload').onclick = async () => {
@@ -310,6 +436,21 @@ async function loadOrders() {
   }
   box.appendChild(table);
 }
+
+const tabButtons = [...document.querySelectorAll('[data-tab]')];
+const tabPanels = {
+  plans: $('panel-plans'),
+  single: $('panel-single'),
+  batch: $('panel-batch'),
+  profile: $('panel-profile')
+};
+tabButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    const selected = button.dataset.tab;
+    tabButtons.forEach((tab) => tab.setAttribute('aria-selected', String(tab === button)));
+    Object.entries(tabPanels).forEach(([name, panel]) => { panel.hidden = name !== selected; });
+  });
+});
 
 loadPlans();
 refresh().then(refreshJobs);

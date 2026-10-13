@@ -12,6 +12,7 @@ import { getBalance, addCredits, spendCredits } from './credits.js';
 import { providerCredits } from './providers/mailVerifier.js';
 import { checkEmail, startWorker } from './worker.js';
 import { registerJobRoutes } from './jobRoutes.js';
+import { registerBillingRoutes } from './billingRoutes.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me') {
   console.error('Set a real JWT_SECRET in your .env file.');
@@ -114,6 +115,7 @@ app.post('/api/verify', requireAuth, async (req, res) => {
 });
 
 registerJobRoutes(app, requireAuth);
+registerBillingRoutes(app, requireAuth);
 
 app.get('/api/history', requireAuth, (req, res) => {
   const rows = db.prepare('SELECT email, status, created_at FROM checks WHERE user_id = ? ORDER BY id DESC LIMIT 50').all(req.user.id);

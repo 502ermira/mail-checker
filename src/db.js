@@ -65,4 +65,21 @@ CREATE TABLE IF NOT EXISTS result_cache (
 );
 `);
 
+db.exec(`
+CREATE TABLE IF NOT EXISTS orders (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users(id),
+  plan_id      TEXT NOT NULL,
+  credits      INTEGER NOT NULL,
+  price_cents  INTEGER NOT NULL,
+  currency     TEXT NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'pending',   -- pending | paid | failed
+  provider     TEXT NOT NULL,
+  provider_ref TEXT,
+  created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  paid_at      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
+`);
+
 export default db;

@@ -79,6 +79,14 @@
     </div>
 
     <section>
+      <h2>Buy credits</h2>
+      <p id="testNote" class="hint hidden">Test mode: no payment is taken, credits are added instantly.</p>
+      <div id="plans" class="row"></div>
+      <div id="buyMsg" class="msg" role="status"></div>
+      <div id="orders"></div>
+    </section>
+
+    <section>
       <h2>Check an email address</h2>
       <div class="row">
         <input id="checkEmail" type="email" placeholder="name@example.com" aria-label="Email address to check">
@@ -246,6 +254,55 @@ $('upload').onclick = async () => {
   } catch (e) { say('uploadMsg', e.message, true); }
 };
 
+const money = (cents, cur) =>
+  new Intl.NumberFormat(undefined, { style: 'currency', currency: cur.toUpperCase() }).format(cents / 100);
+
+async function loadPlans() {
+  try {
+    const { plans, testMode } = await api('plans');
+    $('testNote').classList.toggle('hidden', !testMode);
+    const box = $('plans');
+    box.textContent = '';
+    for (const p of plans) {
+      const b = document.createElement('button');
+      b.textContent = `${p.credits.toLocaleString()} credits for ${money(p.priceCents, p.currency)}`;
+      b.onclick = () => buy(p, b);
+      box.appendChild(b);
+    }
+  } catch { /* ignore */ }
+}
+
+async function buy(plan, btn) {
+  btn.disabled = true;
+  say('buyMsg', 'Processing…');
+  try {
+    const r = await api('purchase', { planId: plan.id });
+    if (r.redirectUrl) { location.href = r.redirectUrl; return; } // for the future real gateway
+    say('buyMsg', `Added ${r.added.toLocaleString()} credits. You now have ${r.credits.toLocaleString()}.`);
+    await refresh();
+  } catch (e) { say('buyMsg', e.message, true); }
+  btn.disabled = false;
+}
+
+async function loadOrders() {
+  const rows = await api('orders');
+  const box = $('orders');
+  box.textContent = '';
+  if (!rows.length) return;
+  const table = document.createElement('table');
+  table.innerHTML = '<tr><th>Date</th><th>Credits</th><th>Price</th><th>Status</th></tr>';
+  for (const o of rows) {
+    const tr = document.createElement('tr');
+    const when = new Date(o.created_at.replace(' ', 'T') + 'Z').toLocaleString();
+    for (const v of [when, o.credits.toLocaleString(), money(o.price_cents, o.currency), o.status]) {
+      const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+  box.appendChild(table);
+}
+
+loadPlans();
 refresh().then(refreshJobs);
 </script>
 </body>

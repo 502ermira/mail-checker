@@ -249,7 +249,7 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const LABELS = { valid: 'Valid', invalid: 'Invalid', catch_all: 'Catch-all (can\'t confirm)', unknown: 'Unknown', bad_format: 'Bad format' };
+const LABELS = { has_facebook: 'Has Facebook', no_facebook: 'No Facebook', unknown: 'Unknown', bad_format: 'Bad format' };
 
 async function api(path, body) {
   const res = await fetch('/api/' + path, {
@@ -386,8 +386,6 @@ $('upload').onclick = async () => {
     const notes = [];
     if (r.duplicatesRemoved) notes.push(`${r.duplicatesRemoved.toLocaleString()} duplicates removed`);
     if (r.badFormat) notes.push(`${r.badFormat.toLocaleString()} wrong-format rows`);
-    if (r.unsupported) notes.push(`${r.unsupported.toLocaleString()} on unsupported domains (refunded)`);
-    if (r.tooSmall) notes.push(`${r.tooSmall.toLocaleString()} in provider groups too small for bulk (refunded)`);
     say('uploadMsg', `Started: ${r.total.toLocaleString()} addresses${notes.length ? ' (' + notes.join(', ') + ')' : ''}.`);
     $('csvFile').value = '';
     await refresh(); await refreshJobs();

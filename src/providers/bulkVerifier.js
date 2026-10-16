@@ -4,17 +4,13 @@ const BASE = () => (process.env.BULK_API_BASE || 'http://i.ihmjc.com/api').repla
 const isMock = () => process.env.MOCK_PROVIDER === '1';
 
 export const BULK_TYPES = {
-  gmail: 'E83A91322509C9BB',
-  outlook: '506FB819AFB04B4D',
-  yahoo: 'EF3FD7EDADCC6B88',
-  mailru: 'D1C845FCEAADE89A',
+  fb: '99397E4B1E843BAA'
 };
 
 const TLD = '(?:com|[a-z]{2}|co\\.[a-z]{2}|com\\.[a-z]{2})';
 const OUTLOOK_RE = new RegExp(`^(?:outlook|hotmail|live|msn)\\.${TLD}$`);
 const YAHOO_RE = new RegExp(`^yahoo\\.${TLD}$`);
 
-/** Returns 'gmail' | 'outlook' | 'yahoo' | 'mailru' | null (null = bulk API can't check it). */
 export function bulkTypeFor(email) {
   const domain = email.slice(email.lastIndexOf('@') + 1).toLowerCase();
   if (domain === 'gmail.com' || domain === 'googlemail.com') return 'gmail';
@@ -23,8 +19,6 @@ export function bulkTypeFor(email) {
   if (['mail.ru', 'inbox.ru', 'list.ru', 'bk.ru'].includes(domain)) return 'mailru';
   return null;
 }
-
-// ---------- low-level HTTP ----------
 
 const ACCOUNT_PROBLEM_RE = /balance|point|credit|insufficient|password|account|auth|login|余额|不足|积分|密码|账号|账户|用户/i;
 

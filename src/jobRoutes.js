@@ -2,27 +2,14 @@ import db from './db.js';
 import { getBalance, spendCredits } from './credits.js';
 import { extractEmails, csvCell } from './csv.js';
 import { finishJob } from './worker.js';
-import { bulkTypeFor } from './providers/bulkVerifier.js';
 
 const MAX_EMAILS = () => Number(process.env.MAX_JOB_EMAILS || 100000);
 const MAX_PER_FILE = () => Number(process.env.BULK_MAX_PER_FILE || 50000);
 const MIN_PER_FILE = () => Number(process.env.BULK_MIN_PER_FILE || 2001);
 
-const NAMES = { gmail: 'Gmail', outlook: 'Outlook/Hotmail', yahoo: 'Yahoo', mailru: 'Mail.ru' };
-
 function groupEmails(valid) {
-  const byType = {};
-  const unsupported = [];
-  for (const e of valid) {
-    const t = bulkTypeFor(e);
-    if (t) (byType[t] ||= []).push(e); else unsupported.push(e);
-  }
-  const counts = Object.fromEntries(Object.entries(byType).map(([t, l]) => [t, l.length]));
-  const tooSmall = [];
-  for (const t of Object.keys(byType)) {
-    if (byType[t].length < MIN_PER_FILE()) { tooSmall.push(...byType[t]); delete byType[t]; }
-  }
-  return { byType, unsupported, tooSmall, counts };
+  const ok = valid.length >= MIN_PER_FILE();
+  return { byType: ok ? { fb: valid } : {}, unsupported: [], tooSmall: [], counts: { fb: valid.length } };
 }
 
 function chunk(list) {
@@ -76,14 +63,10 @@ export function registerJobRoutes(app, requireAuth) {
     if (total > MAX_EMAILS())
       return res.status(400).json({ error: `Too many emails (${total.toLocaleString()}). The limit is ${MAX_EMAILS().toLocaleString()} per file.` });
     const groups = groupEmails(valid);
-    if (!Object.keys(groups.byType).length) {
-      const have = Object.entries(groups.counts).map(([t, c]) => `${NAMES[t]} ${c.toLocaleString()}`).join(', ');
+    if (!Object.keys(groups.byType).length)
       return res.status(400).json({
-        error: have
-          ? `Bulk checking needs more than ${(MIN_PER_FILE() - 1).toLocaleString()} addresses from the same provider (Gmail, Outlook/Hotmail, Yahoo or Mail.ru) in one file. This file has: ${have}.`
-          : 'Bulk checking currently supports Gmail, Outlook/Hotmail, Yahoo and Mail.ru addresses. None were found in this file.',
+        error: `Facebook checking needs at least ${MIN_PER_FILE().toLocaleString()} valid addresses in one file. This file has ${valid.length.toLocaleString()}.`,
       });
-    }
 
     try {
       const { jobId } = createJob(req.user.id, filename, groups, bad, total);

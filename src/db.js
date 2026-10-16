@@ -63,7 +63,25 @@ CREATE TABLE IF NOT EXISTS result_cache (
   status     TEXT NOT NULL,
   checked_at INTEGER NOT NULL
 );
+
+-- One row per file sent to the bulk provider (one provider type per file).
+CREATE TABLE IF NOT EXISTS job_batches (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id       INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  type         TEXT NOT NULL,                    -- gmail | outlook | yahoo | mailru
+  status       TEXT NOT NULL DEFAULT 'new',      -- new | submitting | submitted | done | failed | cancelled
+  send_id      TEXT,                             -- provider's sendID
+  attempts     INTEGER NOT NULL DEFAULT 0,
+  submitted_at INTEGER,
+  last_polled  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_batches_job ON job_batches(job_id, status);
 `);
+
+const itemCols = db.prepare('PRAGMA table_info(job_items)').all().map((c) => c.name);
+if (!itemCols.includes('batch_id'))
+  db.exec('ALTER TABLE job_items ADD COLUMN batch_id INTEGER');
+db.exec('CREATE INDEX IF NOT EXISTS idx_items_batch ON job_items(batch_id, state)');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS orders (

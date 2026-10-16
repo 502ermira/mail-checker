@@ -10,12 +10,18 @@ import { fileURLToPath } from 'node:url';
 import db from './db.js';
 import { getBalance, addCredits, spendCredits } from './credits.js';
 import { providerCredits } from './providers/mailVerifier.js';
+import { bulkBalance } from './providers/bulkVerifier.js';
 import { checkEmail, startWorker } from './worker.js';
 import { registerJobRoutes } from './jobRoutes.js';
 import { registerBillingRoutes } from './billingRoutes.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me') {
   console.error('Set a real JWT_SECRET in your .env file.');
+  process.exit(1);
+}
+
+if (process.env.MOCK_PROVIDER !== '1' && (!process.env.BULK_ACCOUNT || !process.env.BULK_PASS)) {
+  console.error('Set BULK_ACCOUNT and BULK_PASS in your .env file.');
   process.exit(1);
 }
 
@@ -103,11 +109,11 @@ app.post('/api/verify', requireAuth, async (req, res) => {
 
   try {
     const { status, charged } = await checkEmail(email);
-    if (!charged) addCredits(req.user.id, 1, 'refund_not_charged', email); // free results are free for customers too
+    if (!charged) addCredits(req.user.id, 1, 'refund_not_charged', email);
     db.prepare('INSERT INTO checks (user_id, email, status) VALUES (?, ?, ?)').run(req.user.id, email, status);
     res.json({ email, status, credits: getBalance(req.user.id) });
   } catch (e) {
-    addCredits(req.user.id, 1, 'refund_provider_error', email); // customer never pays for our failures
+    addCredits(req.user.id, 1, 'refund_provider_error', email);
     console.error('provider error:', e.message);
     if (e.alertAdmin) console.error('!!! ACTION NEEDED: top up or fix your provider account:', e.message);
     res.status(502).json({ error: 'Verification is temporarily unavailable. Your credit was refunded.' });
@@ -134,8 +140,13 @@ app.post('/api/admin/grant', requireAuth, requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/provider-credits', requireAuth, requireAdmin, async (req, res) => {
-  try { res.json({ credits: await providerCredits() }); }
-  catch { res.status(502).json({ error: 'Could not reach provider.' }); }
+  const [single, bulk] = await Promise.allSettled([providerCredits(), bulkBalance()]);
+  if (single.status === 'rejected' && bulk.status === 'rejected')
+    return res.status(502).json({ error: 'Could not reach provider.' });
+  res.json({
+    credits: single.status === 'fulfilled' ? single.value : null,
+    bulk: bulk.status === 'fulfilled' ? bulk.value : null,
+  });
 });
 
 app.use((err, req, res, next) => {

@@ -341,7 +341,11 @@ function renderJobs(jobs) {
     if (j.status === 'queued' || j.status === 'running') {
       const cancel = document.createElement('button');
       cancel.className = 'small'; cancel.textContent = 'Cancel'; cancel.style.marginLeft = '6px';
-      cancel.onclick = async () => { await api(`jobs/${j.id}/cancel`, {}); await refreshJobs(); await refresh(); };
+      cancel.onclick = async () => {
+        try { await api(`jobs/${j.id}/cancel`, {}); }
+        catch (e) { say('uploadMsg', e.message, true); }
+        await refreshJobs(); await refresh();
+      };
       tdAct.appendChild(cancel);
     }
     tr.append(tdFile, tdProg, tdRes, tdAct);
@@ -351,13 +355,17 @@ function renderJobs(jobs) {
 }
 
 async function refreshJobs() {
+  clearTimeout(pollTimer);
+  let active = true;
   try {
     const jobs = await api('jobs');
     renderJobs(jobs);
-    const active = jobs.some((j) => j.status === 'queued' || j.status === 'running');
-    clearTimeout(pollTimer);
-    if (active) pollTimer = setTimeout(async () => { await refreshJobs(); await refreshCredits(); }, 2000);
-  } catch { /* logged out */ }
+    active = jobs.some((j) => j.status === 'queued' || j.status === 'running');
+    await refreshCredits();
+  } catch (e) {
+    if (e.message === 'Please log in.') return;
+  }
+  if (active) pollTimer = setTimeout(refreshJobs, 3000);
 }
 async function refreshCredits() {
   try {
@@ -378,6 +386,8 @@ $('upload').onclick = async () => {
     const notes = [];
     if (r.duplicatesRemoved) notes.push(`${r.duplicatesRemoved.toLocaleString()} duplicates removed`);
     if (r.badFormat) notes.push(`${r.badFormat.toLocaleString()} wrong-format rows`);
+    if (r.unsupported) notes.push(`${r.unsupported.toLocaleString()} on unsupported domains (refunded)`);
+    if (r.tooSmall) notes.push(`${r.tooSmall.toLocaleString()} in provider groups too small for bulk (refunded)`);
     say('uploadMsg', `Started: ${r.total.toLocaleString()} addresses${notes.length ? ' (' + notes.join(', ') + ')' : ''}.`);
     $('csvFile').value = '';
     await refresh(); await refreshJobs();

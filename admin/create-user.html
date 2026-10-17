@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create user</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 380px; margin: 60px auto; padding: 0 16px; }
+  label { display: block; margin-top: 14px; font-size: 14px; }
+  input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+  button { margin-top: 18px; padding: 10px 16px; }
+  #msg { margin-top: 14px; font-size: 14px; }
+  .err { color: #b00020; }
+</style>
+</head>
+<body>
+  <h1>Create user</h1>
+  <label>Admin key <input id="key" type="password" autocomplete="off"></label>
+  <label>Username <input id="user" type="text" autocomplete="off"></label>
+  <label>Password <input id="pass" type="text" autocomplete="off"></label>
+  <button id="go">Create account</button>
+  <div id="msg"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+$('go').onclick = async () => {
+  const msg = $('msg');
+  msg.className = ''; msg.textContent = 'Working…';
+  try {
+    const res = await fetch('/api/setup/create-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': $('key').value },
+      body: JSON.stringify({ username: $('user').value, password: $('pass').value }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Request failed.');
+    msg.textContent = 'Created "' + $('user').value.trim().toLowerCase() + '".';
+    $('user').value = ''; $('pass').value = '';
+  } catch (e) { msg.className = 'err'; msg.textContent = e.message; }
+};
+</script>
+</body>
+</html>

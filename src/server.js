@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 
 import db from './db.js';
 import { getBalance, addCredits, spendCredits } from './credits.js';
@@ -40,6 +41,38 @@ app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), '
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30 });
+
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10 });
+
+function keyMatches(given) {
+  const key = process.env.ADMIN_KEY || '';
+  if (key.length < 24) return false;
+  const a = crypto.createHash('sha256').update(String(given)).digest();
+  const b = crypto.createHash('sha256').update(key).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+app.get('/admin/manage-users/cr', (req, res) => {
+  res.sendFile(path.join(ROOT, 'admin', 'create-user.html'));
+});
+
+app.post('/api/setup/create-user', adminLimiter, async (req, res) => {
+  if (!keyMatches(req.get('x-admin-key') || '')) return res.status(404).json({ error: 'Not found.' });
+
+  const username = String(req.body.username || '').trim().toLowerCase();
+  const password = String(req.body.password || '');
+  if (username.length < 3 || username.length > 40)
+    return res.status(400).json({ error: 'Username must be 3-40 characters.' });
+  if (password.length < 8 || password.length > 72)
+    return res.status(400).json({ error: 'Password must be 8-72 characters.' });
+  if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(username))
+    return res.status(409).json({ error: 'That username already exists.' });
+
+  const hash = await bcrypt.hash(password, 10);
+  db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(username, hash);
+  res.json({ ok: true });
+});
 
 function setSession(res, user) {
   const token = jwt.sign({ uid: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });

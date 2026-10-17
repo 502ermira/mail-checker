@@ -50,6 +50,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30 });
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const keyLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, skipSuccessfulRequests: true });
+
+function keyMatches(given) {
+  const key = process.env.ADMIN_KEY || '';
+  if (key.length < 24) return false;
+  const a = crypto.createHash('sha256').update(String(given)).digest();
+  const b = crypto.createHash('sha256').update(key).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function requireKey(req, res, next) {
+  if (!keyMatches(req.get('x-admin-key') || '')) return res.status(403).json({ error: 'Wrong key.' });
+  next();
+}
 
 app.get('/assets/panel.js', (req, res) => {
   try {
@@ -63,23 +77,9 @@ app.get('/assets/panel.js', (req, res) => {
   }
 });
 
-const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10 });
+app.use('/api/ops', requireAuth, requireAdmin, keyLimiter, requireKey);
 
-function keyMatches(given) {
-  const key = process.env.ADMIN_KEY || '';
-  if (key.length < 24) return false;
-  const a = crypto.createHash('sha256').update(String(given)).digest();
-  const b = crypto.createHash('sha256').update(key).digest();
-  return crypto.timingSafeEqual(a, b);
-}
-
-app.get('/admin/manage-users/cr', (req, res) => {
-  res.sendFile(path.join(ROOT, 'admin', 'create-user.html'));
-});
-
-app.post('/api/setup/create-user', adminLimiter, async (req, res) => {
-  if (!keyMatches(req.get('x-admin-key') || '')) return res.status(404).json({ error: 'Not found.' });
-
+app.post('/api/ops/create-user', async (req, res) => {
   const username = String(req.body.username || '').trim().toLowerCase();
   const password = String(req.body.password || '');
   if (username.length < 3 || username.length > 40)

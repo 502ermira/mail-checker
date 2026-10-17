@@ -16,7 +16,7 @@ Everything that talks to the verification providers runs on the server. The brow
 
 ## Requirements
 
-- Node.js 22 or newer (the app uses `node --env-file` and `--watch`)
+- Node.js v22.23.3(the app uses `node --env-file` and `--watch`)
 - A provider account for single checks and one for bulk checks
 - For real payments: a TRON wallet address that can receive USDT
 

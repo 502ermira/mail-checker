@@ -364,6 +364,14 @@ function renderJobs(jobs) {
 
     const tdFile = document.createElement('td');
     tdFile.textContent = j.filename;
+
+    const until = new Date(new Date(j.created_at.replace(' ', 'T') + 'Z').getTime() + 7 * 24 * 3600 * 1000);
+    const note = document.createElement('div');
+    note.className = 'hint';
+    note.style.fontSize = '11.5px';
+    note.textContent = 'Download until ' + until.toLocaleDateString('en-GB');
+    tdFile.appendChild(note);
+
     const tdProg = document.createElement('td');
     tdProg.textContent = `${STATUS_TEXT[j.status] || j.status}: ${j.processed.toLocaleString()} of ${j.total.toLocaleString()}`;
     const bar = document.createElement('div'); bar.className = 'bar';

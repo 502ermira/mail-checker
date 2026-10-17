@@ -45,12 +45,18 @@
   }
   h1 { font-size: clamp(27px, 4vw, 34px); line-height: 1.15; margin: 0 0 5px; letter-spacing: -.04em; }
   h2 { font-size: 19px; line-height: 1.3; letter-spacing: -.02em; margin: 0 0 8px; }
+  h3 { font-size: 16px; line-height: 1.3; letter-spacing: -.01em; margin: 0 0 10px; }
   .sub { color: var(--muted); margin: 0; font-size: 15px; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em;
+    background: #f2f4f7; border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px;
+  }
   section {
     background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
     padding: clamp(20px, 3vw, 30px); margin-bottom: 20px; box-shadow: var(--shadow);
   }
   section > h2 { margin-bottom: 18px; }
+  section section { margin: 22px 0 0; padding: 20px; background: #fafbff; box-shadow: none; border-radius: 16px; }
   label { display: block; font-size: 13px; font-weight: 650; color: #475467; margin: 15px 0 7px; }
   input {
     min-width: 0; width: 100%; padding: 12px 14px; font-size: 15px; color: var(--ink);
@@ -85,7 +91,7 @@
   .balance small { font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: 0; }
   .tabs {
     display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px;
-    padding: 7px; margin: 0 0 24px; background: #eceef6; border: 1px solid #e3e6f0; border-radius: 15px;
+    padding: 7px; margin: 0 0 24px; background: #e7e9f1; border: 1px solid #e3e6f0; border-radius: 15px;
   }
   .tab {
     display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px;
@@ -103,12 +109,15 @@
   #plans button:hover { background: #f0efff; border-color: #bcb5ff; }
   .hint { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
   table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; margin-top: 12px; }
-  #history, #jobs, #orders { max-width: 100%; overflow-x: auto; }
+  #history, #jobs, #orders, #ledger, #oList { max-width: 100%; overflow-x: auto; }
   th { text-align: left; color: #667085; font-weight: 700; padding: 12px 10px; background: #f8f9fc; border-bottom: 1px solid var(--line); }
   th:first-child { border-radius: 8px 0 0 0; }
   th:last-child { border-radius: 0 8px 0 0; }
   td { padding: 12px 10px; border-bottom: 1px solid var(--line); word-break: break-word; vertical-align: middle; }
   tr:last-child td { border-bottom: 0; }
+  tr:hover td { background: #fafbff; }
+  td input { width: 9rem; padding: 8px 10px; font-size: 13px; border-radius: 8px; }
+  td input, td button { vertical-align: middle; margin: 2px 6px 2px 0; }
   .tag { display: inline-flex; align-items: center; font-size: 12px; font-weight: 750; padding: 4px 8px; border-radius: 999px; background: #f2f4f7; }
   .valid { color: var(--good); background: var(--good-bg); }
   .invalid, .bad_format { color: var(--bad); background: var(--bad-bg); }
@@ -118,13 +127,36 @@
   .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #8176ff, #594bd7); border-radius: inherit; }
   a.btn, button.small { display: inline-flex; align-items: center; justify-content: center; font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: #475467; background: #fff; text-decoration: none; cursor: pointer; }
   a.btn:hover, button.small:hover { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
+  button.danger { background: #fff; color: var(--bad); border-color: #f3c9d1; }
+  button.danger:hover { background: var(--bad-bg); color: var(--bad); border-color: var(--bad); box-shadow: none; }
   td.act { white-space: nowrap; }
   .empty { color: var(--muted); font-size: 14px; padding: 12px 0; }
   #auth { max-width: 520px; margin: 0 auto; }
   #auth .actions button { flex: 1; }
-  #customAmount { max-width: 190px; }
-  #grantAmount { max-width: 150px; }
+  #customAmount { max-width: 210px; }
   .section-intro { margin: -7px 0 22px; color: var(--muted); font-size: 14px; }
+
+  /* payment box */
+  #payBox { margin-top: 20px; padding: 22px; background: #fafbff; border: 1px solid var(--line); border-radius: 16px; }
+  #payBox img {
+    display: block; width: 200px; height: 200px; margin: 6px 0 18px; padding: 10px;
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+  }
+  #payBox p { margin: 0 0 12px; }
+  #payBox .row { justify-content: flex-start; gap: 10px; margin: 4px 0 16px; }
+  #payAmount { font-size: 18px; font-weight: 700; color: var(--accent); }
+  #payAddress { display: block; padding: 10px 12px; font-size: 13px; }
+  #payStatus {
+    margin: 14px 0 0; padding: 10px 12px; border-radius: 10px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 600;
+  }
+  #payStatus:empty { display: none; }
+
+  /* owner tools */
+  #kLock { max-width: 420px; }
+  #kBody > h3 { margin: 26px 0 10px; padding-top: 22px; border-top: 1px solid var(--line); }
+  #kBody > h3:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
   @media (max-width: 680px) {
     main { padding: 28px 16px 48px; }
     .brand { margin-bottom: 24px; }
@@ -137,8 +169,10 @@
     section { border-radius: 16px; }
     table { min-width: 540px; }
     #history table { min-width: 360px; }
+    #oList table { min-width: 760px; }
   }
 </style>
+
 </head>
 <body>
 <main>
@@ -181,11 +215,11 @@
         <p id="testNote" class="hint hidden">Test mode: no payment is taken, credits are added instantly.</p>
         <div id="plans" class="row"></div>
         <div class="row">
-          <input id="customAmount" type="number" step="1" placeholder="Amount in dollars" aria-label="Custom amount in dollars" style="max-width:160px">
+          <input id="customAmount" type="number" step="1" placeholder="Amount in dollars" aria-label="Custom amount in dollars">
           <button id="customBuy">Add funds (1 credit per $1, no bonus)</button>
         </div>
         <div id="buyMsg" class="msg" role="status"></div>
-        <div id="payBox" class="hidden" style="margin-top:16px;padding:16px;border:1px solid #ddd;border-radius:8px"></div>
+        <div id="payBox" class="hidden"></div>
       </section>
       <section>
         <h2>Order history</h2>

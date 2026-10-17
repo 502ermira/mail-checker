@@ -1,0 +1,563 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Verify email addresses with Mailcheck. Check single emails or upload a file for bulk verification.">
+  <title>Mailcheck — Email verification made simple</title>
+
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fc;
+      --panel: #fff;
+      --ink: #182230;
+      --muted: #667085;
+      --line: #e5e9f2;
+      --accent: #6558e8;
+      --accent-hover: #5145cf;
+      --accent-soft: #f0efff;
+      --shadow: 0 12px 34px rgba(31,42,68,.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 10% 0%, rgba(101,88,232,.09), transparent 36rem),
+        var(--bg);
+      font: 15px/1.6 Inter, ui-sans-serif, system-ui,
+        -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .container {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding-left: 28px;
+      padding-right: 28px;
+    }
+
+    nav {
+      height: 86px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(229,233,242,.8);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      border-radius: 14px;
+      color: white;
+      font-size: 21px;
+      font-weight: 800;
+      background: linear-gradient(145deg,#8176ff,#594bd7);
+      box-shadow: 0 8px 18px rgba(101,88,232,.22);
+    }
+
+    .brand-name {
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -.6px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 11px 19px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      background: var(--accent);
+      color: white;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      transition: background .18s, transform .18s, box-shadow .18s;
+    }
+
+    .button:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 5px 14px rgba(101,88,232,.18);
+    }
+
+    .button:active { transform: translateY(1px); }
+
+    .button:focus-visible,
+    a:focus-visible {
+      outline: 3px solid rgba(101,88,232,.35);
+      outline-offset: 3px;
+    }
+
+    .button-light {
+      background: white;
+      color: var(--accent);
+      border-color: var(--line);
+    }
+
+    .button-light:hover {
+      background: var(--accent-soft);
+      box-shadow: none;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      align-items: center;
+      gap: 64px;
+      padding-top: 94px;
+      padding-bottom: 94px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 11px;
+      border: 1px solid #e4e0ff;
+      border-radius: 999px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      font-size: 12px;
+      font-weight: 750;
+      margin-bottom: 20px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    h1 {
+      max-width: 650px;
+      margin: 0 0 22px;
+      font-size: clamp(39px, 5.5vw, 62px);
+      line-height: 1.08;
+      letter-spacing: -.055em;
+    }
+
+    h1 span { color: var(--accent); }
+
+    .hero-copy {
+      max-width: 530px;
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.8;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hero-note {
+      margin-top: 17px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .preview {
+      padding: 25px;
+      background: rgba(255,255,255,.92);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: 0 24px 70px rgba(31,42,68,.09);
+      transform: rotate(1deg);
+    }
+
+    .preview-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .preview-title { font-weight: 800; }
+
+    .preview-label {
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .result {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 17px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .result:last-child { border-bottom: 0; }
+
+    .result-icon {
+      display: grid;
+      place-items: center;
+      width: 39px;
+      height: 39px;
+      flex: 0 0 39px;
+      border-radius: 12px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .result-name { font-weight: 700; font-size: 13px; }
+    .result-desc { color: var(--muted); font-size: 12px; }
+
+    .result-status {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 750;
+      color: #16845b;
+      background: #e8f7ef;
+      padding: 5px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .section {
+      padding-top: 74px;
+      padding-bottom: 80px;
+    }
+
+    .section-heading {
+      max-width: 600px;
+      margin: 0 auto 38px;
+      text-align: center;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: clamp(27px,4vw,36px);
+      line-height: 1.2;
+      letter-spacing: -.04em;
+    }
+
+    .section-heading p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3,minmax(0,1fr));
+      gap: 18px;
+    }
+
+    .feature {
+      padding: 26px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .feature-icon {
+      display: grid;
+      place-items: center;
+      width: 46px;
+      height: 46px;
+      margin-bottom: 19px;
+      border-radius: 14px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 22px;
+    }
+
+    .feature h3 {
+      margin: 0 0 9px;
+      font-size: 17px;
+      letter-spacing: -.3px;
+    }
+
+    .feature p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3,minmax(0,1fr));
+      gap: 24px;
+      margin-top: 38px;
+    }
+
+    .step-number {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      margin-bottom: 16px;
+      border-radius: 12px;
+      background: var(--accent);
+      color: white;
+      font-weight: 800;
+    }
+
+    .step h3 { margin: 0 0 8px; font-size: 16px; }
+    .step p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .cta {
+      padding-top: 20px;
+      padding-bottom: 90px;
+    }
+
+    .cta-panel {
+      padding: 48px 28px;
+      text-align: center;
+      background: linear-gradient(145deg,#f0efff,#fff);
+      border: 1px solid #e4e0ff;
+      border-radius: 22px;
+    }
+
+    .cta-panel p {
+      max-width: 500px;
+      margin: 0 auto 24px;
+      color: var(--muted);
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 25px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+    }
+
+    @media (max-width: 760px) {
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 42px;
+        padding-top: 62px;
+        padding-bottom: 65px;
+      }
+
+      .preview {
+        max-width: 500px;
+        width: 100%;
+        transform: none;
+      }
+
+      .features, .steps {
+        grid-template-columns: 1fr;
+      }
+
+      .section { padding-top: 55px; padding-bottom: 60px; }
+      .cta { padding-bottom: 60px; }
+    }
+
+    @media (max-width: 480px) {
+      .container { padding-left: 18px; padding-right: 18px; }
+      nav { height: 74px; }
+      .brand-name { font-size: 17px; }
+      .brand-mark { width: 40px; height: 40px; flex-basis: 40px; }
+      h1 { font-size: 42px; }
+      .hero-copy { font-size: 15px; }
+      .hero-actions .button { flex: 1; }
+      .preview { padding: 18px; }
+      .result-status { font-size: 10px; }
+      .footer-inner { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="container">
+    <nav aria-label="Main navigation">
+      <a class="brand" href="/" aria-label="Mailcheck home">
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <span class="brand-name">Mailcheck</span>
+      </a>
+
+      <a class="button" href="/login.html">Log in &rarr;</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero container">
+      <div>
+        <div class="eyebrow">
+          <span class="dot"></span>
+          Simple email verification
+        </div>
+
+        <h1>
+          Better email lists start with
+          <span>verification.</span>
+        </h1>
+
+        <p class="hero-copy">
+          Check email addresses individually or verify entire lists
+          in one go. Mailcheck helps you understand email deliverability
+          with clear, easy-to-read results.
+        </p>
+
+        <div class="hero-actions">
+          <a class="button" href="/login.html">Get started &rarr;</a>
+          <a class="button button-light" href="#features">Explore features</a>
+        </div>
+
+        <p class="hero-note">
+          Sign in to access your verification tools and account.
+        </p>
+      </div>
+
+      <div class="preview" aria-label="Illustration of email verification results">
+        <div class="preview-top">
+          <span class="preview-title">Email verification</span>
+          <span class="preview-label">Results overview</span>
+        </div>
+
+        <div class="result">
+          <div class="result-icon" aria-hidden="true">@</div>
+          <div>
+            <div class="result-name">Single email check</div>
+            <div class="result-desc">Check an address individually</div>
+          </div>
+        </div>
+
+        <div class="result">
+          <div class="result-icon" aria-hidden="true">↗</div>
+          <div>
+            <div class="result-name">Bulk verification</div>
+            <div class="result-desc">Upload a CSV or text file</div>
+          </div>
+        </div>
+
+        <div class="result">
+          <div class="result-icon" aria-hidden="true">✓</div>
+          <div>
+            <div class="result-name">Clear results</div>
+            <div class="result-desc">Review your verification status</div>
+          </div>
+          <span class="result-status">Easy to read</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="section container">
+      <div class="section-heading">
+        <h2>Everything you need to check your list</h2>
+        <p>
+          Straightforward tools to help you check addresses,
+          process lists, and review your results.
+        </p>
+      </div>
+
+      <div class="features">
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">@</div>
+          <h3>Single email checks</h3>
+          <p>
+            Enter an individual email address and view its
+            verification result directly in your account.
+          </p>
+        </article>
+
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">⇧</div>
+          <h3>Bulk verification</h3>
+          <p>
+            Upload a CSV or text file to process multiple
+            email addresses in a single job.
+          </p>
+        </article>
+
+        <article class="feature">
+          <div class="feature-icon" aria-hidden="true">▤</div>
+          <h3>Results and history</h3>
+          <p>
+            Review recent checks, track your credit activity,
+            and download available batch results.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section container">
+      <div class="section-heading">
+        <h2>Get started in three steps</h2>
+        <p>A simple workflow from sign-in to verification.</p>
+      </div>
+
+      <div class="steps">
+        <article class="step">
+          <div class="step-number">1</div>
+          <h3>Sign in</h3>
+          <p>Log in to your Mailcheck account to access your tools.</p>
+        </article>
+
+        <article class="step">
+          <div class="step-number">2</div>
+          <h3>Choose your check</h3>
+          <p>Verify one email address or upload a list for bulk processing.</p>
+        </article>
+
+        <article class="step">
+          <div class="step-number">3</div>
+          <h3>Review your results</h3>
+          <p>View your results and download available batch reports.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="cta container">
+      <div class="cta-panel">
+        <h2>Ready to check your emails?</h2>
+        <p>
+          Sign in to Mailcheck and get started with your
+          email verification workflow.
+        </p>
+        <a class="button" href="/login.html">Go to Mailcheck &rarr;</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"
+          style="width:32px;height:32px;flex-basis:32px;border-radius:10px;font-size:15px">M</span>
+        <span class="brand-name" style="font-size:14px">Mailcheck</span>
+      </a>
+      <span>Email verification, made clear and simple.</span>
+    </div>
+  </footer>
+</body>
+</html>

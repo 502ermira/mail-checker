@@ -136,7 +136,18 @@
         } catch (e) { say('oMsg', e.message, true); }
         await loadOrders();
       };
-      td.append(hash, cr, btn);
+      const del = document.createElement('button');
+      del.className = 'small ghost'; del.textContent = 'Delete'; del.style.marginLeft = '6px';
+      del.onclick = async () => {
+        if (!confirm(`Delete order #${o.id} (${o.username}, ${o.amount} USDT)? If this customer already sent the payment, it will no longer be matched automatically.`)) return;
+        del.disabled = true;
+        try {
+          await ops(`ops/orders/${o.id}/delete`, {});
+          say('oMsg', `Order #${o.id} deleted.`);
+        } catch (e) { say('oMsg', e.message, true); }
+        await loadOrders();
+      };
+      td.append(hash, cr, btn, del);
       tr.appendChild(td);
       table.appendChild(tr);
     }

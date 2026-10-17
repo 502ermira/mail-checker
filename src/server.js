@@ -259,6 +259,16 @@ app.post('/api/ops/orders/:id/approve', requireAuth, requireAdmin, (req, res) =>
   }
 });
 
+app.post('/api/ops/orders/:id/delete', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const r = db.prepare(
+    "DELETE FROM orders WHERE id = ? AND provider = 'tron' AND status IN ('pending', 'expired') AND tx_id IS NULL"
+  ).run(id);
+  if (!r.changes) return res.status(404).json({ error: 'Order not found, or it is already paid.' });
+  console.log(`order ${id} deleted by ${req.user.email}`);
+  res.json({ ok: true });
+});
+
 app.get('/api/ops/provider-credits', requireAuth, requireAdmin, async (req, res) => {
   const [single, bulk] = await Promise.allSettled([providerCredits(), bulkBalance()]);
   if (single.status === 'rejected' && bulk.status === 'rejected')

@@ -39,7 +39,22 @@ if (process.env.PAYMENT_PROVIDER === 'tron' && !/^T[1-9A-HJ-NP-Za-km-z]{33}$/.te
 
 const app = express();
 app.disable('x-powered-by');
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+    },
+  },
+}));
 app.use('/api/jobs', express.json({ limit: '10mb' }));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());

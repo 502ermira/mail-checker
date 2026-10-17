@@ -17,14 +17,16 @@ import { registerBillingRoutes } from './billingRoutes.js';
 import { startRetention } from './retention.js';
 import { startBackups } from './backup.js';
 
-if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me') {
-  console.error('Set a real JWT_SECRET in your .env file.');
+const secret = process.env.JWT_SECRET || '';
+if (secret.length < 32 || ['change-me', 'secret'].includes(secret)) {
+  console.error('Set JWT_SECRET to a random string of at least 32 characters.');
   process.exit(1);
 }
 
-if (process.env.MOCK_PROVIDER !== '1' && (!process.env.BULK_ACCOUNT || !process.env.BULK_PASS)) {
-  console.error('Set BULK_ACCOUNT and BULK_PASS in your .env file.');
-  process.exit(1);
+if (process.env.MOCK_PROVIDER !== '1') {
+  for (const k of ['BULK_ACCOUNT', 'BULK_PASS', 'BULK_API_BASE', 'BULK_TYPE_FB', 'PROVIDER_KEY', 'PROVIDER_API_BASE']) {
+    if (!process.env[k]) { console.error(`Set ${k} in your .env file.`); process.exit(1); }
+  }
 }
 
 const app = express();

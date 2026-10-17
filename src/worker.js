@@ -159,7 +159,6 @@ async function pollBatch(batch) {
     console.error('bulk poll error:', e.message);
     if (e instanceof ProviderError && e.alertAdmin) pausedUntil = Date.now() + 60_000;
     if (expired) failBatch(batch.id, `timed_out (${e.message})`);
-    // otherwise: leave it 'submitted' and try again at the next poll
   }
 }
 

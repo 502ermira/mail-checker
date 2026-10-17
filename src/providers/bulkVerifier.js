@@ -1,11 +1,9 @@
 import { ProviderError } from './mailVerifier.js';
 
-const BASE = () => (process.env.BULK_API_BASE || 'http://i.ihmjc.com/api').replace(/\/+$/, '');
+const BASE = () => String(process.env.BULK_API_BASE || '').replace(/\/+$/, '');
 const isMock = () => process.env.MOCK_PROVIDER === '1';
 
-export const BULK_TYPES = {
-  fb: '99397E4B1E843BAA'
-};
+const bulkType = (key) => process.env[`BULK_TYPE_${key.toUpperCase()}`];
 
 const TLD = '(?:com|[a-z]{2}|co\\.[a-z]{2}|com\\.[a-z]{2})';
 const OUTLOOK_RE = new RegExp(`^(?:outlook|hotmail|live|msn)\\.${TLD}$`);
@@ -98,7 +96,7 @@ export async function bulkUpload(typeKey, emails) {
   const d = unwrap(
     await post(
       'UploadEmail.ashx',
-      { code: process.env.BULK_COUNTRY_CODE || '1', type: BULK_TYPES[typeKey] },
+      { code: process.env.BULK_COUNTRY_CODE || '1', type: bulkType(typeKey) },
       { name: 'emails.txt', content: emails.join('\n') }
     )
   );

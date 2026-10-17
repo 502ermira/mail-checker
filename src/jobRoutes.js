@@ -65,7 +65,7 @@ export function registerJobRoutes(app, requireAuth) {
     const groups = groupEmails(valid);
     if (!Object.keys(groups.byType).length)
       return res.status(400).json({
-        error: `Facebook checking needs at least ${MIN_PER_FILE().toLocaleString()} valid addresses in one file. This file has ${valid.length.toLocaleString()}.`,
+        error: `Batch files need at least ${MIN_PER_FILE().toLocaleString()} valid addresses in one file. This file has ${valid.length.toLocaleString()}.`,
       });
 
     try {

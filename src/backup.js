@@ -8,9 +8,11 @@ const keep = () => Number(process.env.BACKUP_KEEP || 7);
 export async function runBackup() {
   fs.mkdirSync(dir(), { recursive: true });
   const file = path.join(dir(), `data-${new Date().toISOString().slice(0, 10)}.db`);
-  if (fs.existsSync(file)) fs.unlinkSync(file);
+  const tmp = file + '.tmp';
+  if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
 
-  await db.backup(file);
+  await db.backup(tmp);
+  fs.renameSync(tmp, file);
 
   const all = fs.readdirSync(dir()).filter((f) => /^data-\d{4}-\d{2}-\d{2}\.db$/.test(f)).sort();
   for (const f of all.slice(0, Math.max(0, all.length - keep()))) fs.unlinkSync(path.join(dir(), f));

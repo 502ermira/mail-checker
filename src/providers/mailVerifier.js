@@ -1,6 +1,6 @@
 export const STATUSES = ['valid', 'invalid', 'catch_all', 'unknown', 'bad_format'];
 
-const BASE = 'https://api.mail-verifier.xyz/';
+const BASE = () => process.env.PROVIDER_API_BASE;
 const MAX_PER_MIN = Number(process.env.PROVIDER_MAX_PER_MIN || 600);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -54,7 +54,7 @@ export async function verify(email) {
   }
 
   await throttle();
-  const url = new URL(BASE);
+  const url = new URL(BASE());
   url.searchParams.set('cmd', 'verify');
   url.searchParams.set('key', process.env.PROVIDER_KEY);
   url.searchParams.set('email', email);
@@ -76,11 +76,15 @@ export async function verify(email) {
 
 export async function providerCredits() {
   if (process.env.MOCK_PROVIDER === '1') return 999999;
-  const url = new URL(BASE);
+  const url = new URL(BASE());
   url.searchParams.set('cmd', 'credits');
   url.searchParams.set('key', process.env.PROVIDER_KEY);
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  const data = await res.json();
+  let res;
+  try { res = await fetch(url, { signal: AbortSignal.timeout(15000) }); }
+  catch { throw new ProviderError('provider_unreachable'); }
+  if (!res.ok) throw new ProviderError(`provider_http_${res.status}`);
+  let data;
+  try { data = await res.json(); } catch { throw new ProviderError('provider_bad_json'); }
   return Number(data.credits);
 }
 

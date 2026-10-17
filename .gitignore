@@ -3,3 +3,6 @@ node_modules/
 *.db
 *.db-wal
 *.db-shm
+backups/
+data.db
+data.db-*

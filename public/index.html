@@ -188,10 +188,11 @@
       </section>
       <section>
         <h2>Order history</h2>
+        <p class="section-intro">Orders are kept for 30 days, then deleted. Your credits never expire.</p>
         <div id="orders"></div>
         <section>
           <h2>Credit activity</h2>
-          <p class="section-intro">Where your credits came from and where they were spent.</p>
+          <p class="section-intro">Where your credits came from and where they were spent. Kept for 30 days, then deleted. Your credit balance is not affected.</p>
           <div id="ledger"></div>
         </section>
       </section>
@@ -219,6 +220,7 @@
         <h2>Batch email verification</h2>
         <p class="section-intro">Upload a CSV or text file to verify multiple addresses in one job.</p>
         <p class="hint">Each address uses 1 credit, taken up front. Wrong-format rows, results we can't determine, and any errors are refunded when the job ends.</p>
+        <p class="hint"><strong>Important:</strong> results can be downloaded for 7 days after you upload the file. After that the file and its results are permanently deleted. Please download your results before then.</p>
         <div class="row">
           <input id="csvFile" type="file" accept=".csv,.txt,text/csv,text/plain" aria-label="CSV file">
           <button id="upload">Start batch check</button>

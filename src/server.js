@@ -14,6 +14,7 @@ import { bulkBalance } from './providers/bulkVerifier.js';
 import { checkEmail, startWorker } from './worker.js';
 import { registerJobRoutes } from './jobRoutes.js';
 import { registerBillingRoutes } from './billingRoutes.js';
+import { startRetention } from './retention.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me') {
   console.error('Set a real JWT_SECRET in your .env file.');
@@ -138,7 +139,7 @@ app.get('/api/ledger', requireAuth, (req, res) => {
            END AS detail
     FROM credit_ledger l
     LEFT JOIN jobs j ON l.ref = 'job:' || j.id AND j.user_id = l.user_id
-    WHERE l.user_id = ?
+    WHERE l.user_id = ? AND l.reason != 'carryover'
     ORDER BY l.id DESC LIMIT 200
   `).all(req.user.id);
   res.json(rows);
@@ -174,4 +175,5 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Running on http://localhost:${port}`);
   startWorker();
+  startRetention();
 });

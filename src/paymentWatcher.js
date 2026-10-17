@@ -57,5 +57,5 @@ export function startPaymentWatcher() {
     finally { running = false; }
   };
   run();
-  setInterval(run, 15_000).unref();
+  setInterval(run, 30_000).unref();
 }

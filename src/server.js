@@ -18,6 +18,7 @@ import { registerBillingRoutes } from './billingRoutes.js';
 import { startRetention } from './retention.js';
 import { startBackups } from './backup.js';
 import { startPaymentWatcher } from './paymentWatcher.js';
+import { approveOrderManually } from './billing.js';
 
 const secret = process.env.JWT_SECRET || '';
 if (secret.length < 32 || ['change-me', 'secret'].includes(secret)) {
@@ -49,6 +50,19 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30 });
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+app.get('/assets/panel.js', (req, res) => {
+  try {
+    const { uid } = jwt.verify(req.cookies.session, process.env.JWT_SECRET);
+    const u = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(uid);
+    if (!u?.is_admin) throw new Error('no');
+    res.set('Cache-Control', 'no-store');
+    res.type('application/javascript').sendFile(path.join(ROOT, 'private', 'panel.js'));
+  } catch {
+    res.status(404).end();
+  }
+});
+
 const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10 });
 
 function keyMatches(given) {
@@ -137,7 +151,7 @@ app.post('/api/change-password', requireAuth, authLimiter, async (req, res) => {
 });
 
 app.get('/api/me', requireAuth, (req, res) => {
-  res.json({ username: req.user.email, isAdmin: !!req.user.is_admin, credits: getBalance(req.user.id) });
+  res.json({ username: req.user.email, tools: !!req.user.is_admin, credits: getBalance(req.user.id) });
 });
 
 app.post('/api/verify', requireAuth, async (req, res) => {
@@ -187,7 +201,7 @@ app.get('/api/ledger', requireAuth, (req, res) => {
   res.json(rows);
 });
 
-app.post('/api/admin/grant', requireAuth, requireAdmin, (req, res) => {
+app.post('/api/ops/grant', requireAuth, requireAdmin, (req, res) => {
   const username = String(req.body.username || '').trim().toLowerCase();
   const amount = parseInt(req.body.amount, 10);
   if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 10_000_000)
@@ -198,7 +212,39 @@ app.post('/api/admin/grant', requireAuth, requireAdmin, (req, res) => {
   res.json({ ok: true, credits: getBalance(user.id) });
 });
 
-app.get('/api/admin/provider-credits', requireAuth, requireAdmin, async (req, res) => {
+
+app.get('/api/ops/orders', requireAuth, requireAdmin, (req, res) => {
+  const rows = db.prepare(`
+    SELECT o.id, u.email AS username, o.credits, o.pay_amount, o.status, o.created_at
+    FROM orders o JOIN users u ON u.id = o.user_id
+    WHERE o.provider = 'tron' AND o.status IN ('pending', 'expired')
+    ORDER BY o.id DESC LIMIT 50
+  `).all();
+  res.json(rows.map(({ pay_amount, ...r }) => ({ ...r, amount: (pay_amount / 1e6).toFixed(4) })));
+});
+
+app.post('/api/ops/orders/:id/approve', requireAuth, requireAdmin, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const hash = String(req.body.txId || '').trim().toLowerCase();
+  if (hash && !/^[0-9a-f]{64}$/.test(hash))
+    return res.status(400).json({ error: 'A TRON transaction hash is 64 letters and numbers (0-9, a-f).' });
+  const raw = req.body.credits;
+  const credits = raw === '' || raw == null ? undefined : Number(raw);
+
+  try {
+    const r = approveOrderManually(id, hash || null, credits);
+    console.log(`order ${id} approved manually by ${req.user.email}: ${r.credits} credits to user ${r.userId}`);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.message === 'NOT_FOUND') return res.status(404).json({ error: 'Order not found.' });
+    if (e.message === 'NOT_APPROVABLE') return res.status(409).json({ error: 'This order is already paid or closed.' });
+    if (e.message === 'BAD_CREDITS') return res.status(400).json({ error: 'Credits must be a whole number above 0.' });
+    if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'That transaction hash was already used on another order.' });
+    throw e;
+  }
+});
+
+app.get('/api/ops/provider-credits', requireAuth, requireAdmin, async (req, res) => {
   const [single, bulk] = await Promise.allSettled([providerCredits(), bulkBalance()]);
   if (single.status === 'rejected' && bulk.status === 'rejected')
     return res.status(502).json({ error: 'Could not reach provider.' });

@@ -77,3 +77,17 @@ export const fulfillCryptoOrder = db.transaction((orderId, txId) => {
   addCredits(order.user_id, order.credits, 'purchase', `order:${orderId}`);
   return true;
 });
+
+export const approveOrderManually = db.transaction((orderId, txId, credits) => {
+  const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+  if (!o) throw new Error('NOT_FOUND');
+  if (!['pending', 'expired'].includes(o.status)) throw new Error('NOT_APPROVABLE');
+
+  const amount = credits ?? o.credits;
+  if (!Number.isInteger(amount) || amount <= 0 || amount > 10_000_000) throw new Error('BAD_CREDITS');
+
+  db.prepare("UPDATE orders SET status = 'paid', paid_at = CURRENT_TIMESTAMP, tx_id = ?, credits = ? WHERE id = ?")
+    .run(txId, amount, orderId);
+  addCredits(o.user_id, amount, 'purchase', `order:${orderId}`);
+  return { userId: o.user_id, credits: amount };
+});

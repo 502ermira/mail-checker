@@ -249,16 +249,7 @@
         <div class="actions"><button id="changePass">Change password</button></div>
         <div id="passMsg" class="msg" role="status"></div>
       </section>
-      <section id="admin" class="hidden">
-        <h2>Customer credit management</h2>
-        <p class="section-intro">Admin tools</p>
-        <div class="row">
-          <input id="grantEmail" type="text" placeholder="customer username" aria-label="Customer username">
-          <input id="grantAmount" type="number" placeholder="Credits" aria-label="Number of credits" style="max-width:120px">
-        </div>
-        <div class="actions"><button id="grant">Add credits</button></div>
-        <div id="grantMsg" class="msg" role="status"></div>
-      </section>
+      <section id="staff" class="hidden"></section>
     </div>
   </div>
 </main>
@@ -296,7 +287,8 @@ async function refresh() {
     $('credits').textContent = me.credits.toLocaleString();
     $('accCredits').textContent = me.credits.toLocaleString();
     $('accEmail').textContent = me.username || '—';
-    $('admin').classList.toggle('hidden', !me.isAdmin);
+    if (me.tools) loadTools(); else clearTools();
+    if (me.isAdmin) loadAdminOrders();
     const rows = await api('history');
     $('history').innerHTML = rows.length
       ? '<table><tr><th>Email</th><th>Result</th></tr>' + rows.map(r =>
@@ -340,14 +332,6 @@ $('check').onclick = async () => {
     say('checkMsg', `${r.email}: ${LABELS[r.status] || r.status}`);
     await refresh();
   } catch (e) { say('checkMsg', e.message, true); }
-};
-
-$('grant').onclick = async () => {
-  try {
-    const r = await api('admin/grant', { username: $('grantEmail').value, amount: $('grantAmount').value });
-    say('grantMsg', `Done. That customer now has ${r.credits.toLocaleString()} credits.`);
-    await refresh();
-  } catch (e) { say('grantMsg', e.message, true); }
 };
 
 let pollTimer = null;
@@ -582,6 +566,21 @@ tabButtons.forEach((button) => {
     Object.entries(tabPanels).forEach(([name, panel]) => { panel.hidden = name !== selected; });
   });
 });
+
+let toolsLoaded = false;
+function loadTools() {
+  if (toolsLoaded) return;
+  toolsLoaded = true;
+  const s = document.createElement('script');
+  s.src = '/assets/panel.js';
+  document.body.appendChild(s);
+}
+function clearTools() {
+  toolsLoaded = false;
+  const el = $('staff');
+  el.textContent = '';
+  el.classList.add('hidden');
+}
 
 loadPlans();
 refresh().then(refreshJobs);

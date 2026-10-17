@@ -152,15 +152,12 @@
 
   <section id="auth">
     <h2>Welcome to Mailcheck</h2>
-    <p class="section-intro">Log in or create an account to verify email addresses.</p>
-    <label for="email">Email</label>
-    <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
-    <label for="password">Password (8+ characters)</label>
+    <p class="section-intro">Log in to continue.</p>
+    <label for="username">Username</label>
+    <input id="username" type="text" autocomplete="username" placeholder="Your username">
+    <label for="password">Password</label>
     <input id="password" type="password" autocomplete="current-password" placeholder="Enter your password">
-    <div class="actions">
-      <button id="login">Log in</button>
-      <button id="signup" class="ghost">Create account</button>
-    </div>
+    <div class="actions"><button id="login">Log in</button></div>
     <div id="authMsg" class="msg" role="status"></div>
   </section>
 
@@ -192,6 +189,11 @@
       <section>
         <h2>Order history</h2>
         <div id="orders"></div>
+        <section>
+          <h2>Credit activity</h2>
+          <p class="section-intro">Where your credits came from and where they were spent.</p>
+          <div id="ledger"></div>
+        </section>
       </section>
     </div>
 
@@ -230,14 +232,25 @@
       <section>
         <h2>Account</h2>
         <p class="section-intro">Your account details.</p>
-        <p><strong>Email:</strong> <span id="accEmail">—</span></p>
+        <p><strong>Username:</strong> <span id="accEmail">—</span></p>
         <p><strong>Credits:</strong> <span id="accCredits">0</span></p>
+      </section>
+      <section>
+        <h2>Change password</h2>
+        <label for="curPass">Current password</label>
+        <input id="curPass" type="password" autocomplete="current-password">
+        <label for="newPass">New password (8+ characters)</label>
+        <input id="newPass" type="password" autocomplete="new-password">
+        <label for="newPass2">Repeat new password</label>
+        <input id="newPass2" type="password" autocomplete="new-password">
+        <div class="actions"><button id="changePass">Change password</button></div>
+        <div id="passMsg" class="msg" role="status"></div>
       </section>
       <section id="admin" class="hidden">
         <h2>Customer credit management</h2>
         <p class="section-intro">Admin tools</p>
         <div class="row">
-          <input id="grantEmail" type="email" placeholder="customer@example.com" aria-label="Customer email">
+          <input id="grantEmail" type="text" placeholder="customer username" aria-label="Customer username">
           <input id="grantAmount" type="number" placeholder="Credits" aria-label="Number of credits" style="max-width:120px">
         </div>
         <div class="actions"><button id="grant">Add credits</button></div>
@@ -249,7 +262,16 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const LABELS = { has_facebook: 'Has Facebook', no_facebook: 'No Facebook', unknown: 'Unknown', bad_format: 'Bad format' };
+const LABELS = { valid: 'Valid', invalid: 'Invalid', catch_all: 'Catch-all (can\'t confirm)', has_facebook: 'Valid', no_facebook: 'Invalid', unknown: 'Unknown', bad_format: 'Bad format' };
+const REASONS = {
+  purchase: 'Credits purchased',
+  single_check: 'Single check',
+  job_reserve: 'Batch check',
+  job_refund: 'Batch refund',
+  refund_not_charged: 'Single check refund',
+  refund_provider_error: 'Single check refund',
+  manual_grant: 'Adjustment by support',
+};
 
 async function api(path, body) {
   const res = await fetch('/api/' + path, {
@@ -270,7 +292,7 @@ async function refresh() {
     $('app').classList.remove('hidden');
     $('credits').textContent = me.credits.toLocaleString();
     $('accCredits').textContent = me.credits.toLocaleString();
-    $('accEmail').textContent = me.email || '—';
+    $('accEmail').textContent = me.username || '—';
     $('admin').classList.toggle('hidden', !me.isAdmin);
     const rows = await api('history');
     $('history').innerHTML = rows.length
@@ -278,19 +300,35 @@ async function refresh() {
           `<tr><td></td><td><span class="tag ${r.status}">${LABELS[r.status] || r.status}</span></td></tr>`).join('') + '</table>'
       : '<p class="empty">No checks yet. Enter an address above to run your first one.</p>';
     [...$('history').querySelectorAll('tr')].slice(1).forEach((tr, i) => tr.firstChild.textContent = rows[i].email);
+    await Promise.all([loadOrders(), loadLedger()]);
   } catch {
     $('auth').classList.remove('hidden');
     $('app').classList.add('hidden');
   }
 }
 
-async function auth(kind) {
-  try { await api(kind, { email: $('email').value, password: $('password').value }); say('authMsg', ''); await refresh(); }
-  catch (e) { say('authMsg', e.message, true); }
+async function login() {
+  try {
+    await api('login', { username: $('username').value, password: $('password').value });
+    say('authMsg', '');
+    $('password').value = '';
+    await refresh();
+    await refreshJobs();
+  } catch (e) { say('authMsg', e.message, true); }
 }
-$('login').onclick = () => auth('login');
-$('signup').onclick = () => auth('signup');
+$('login').onclick = login;
+$('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
 $('logout').onclick = async () => { await api('logout', {}); await refresh(); };
+
+$('changePass').onclick = async () => {
+  const cur = $('curPass').value, next = $('newPass').value, again = $('newPass2').value;
+  if (next !== again) return say('passMsg', 'The new passwords do not match.', true);
+  try {
+    await api('change-password', { currentPassword: cur, newPassword: next });
+    $('curPass').value = ''; $('newPass').value = ''; $('newPass2').value = '';
+    say('passMsg', 'Password changed.');
+  } catch (e) { say('passMsg', e.message, true); }
+};
 
 $('check').onclick = async () => {
   say('checkMsg', 'Checking…');
@@ -303,7 +341,7 @@ $('check').onclick = async () => {
 
 $('grant').onclick = async () => {
   try {
-    const r = await api('admin/grant', { email: $('grantEmail').value, amount: $('grantAmount').value });
+    const r = await api('admin/grant', { username: $('grantEmail').value, amount: $('grantAmount').value });
     say('grantMsg', `Done. That customer now has ${r.credits.toLocaleString()} credits.`);
     await refresh();
   } catch (e) { say('grantMsg', e.message, true); }
@@ -362,6 +400,7 @@ async function refreshJobs() {
     renderJobs(jobs);
     active = jobs.some((j) => j.status === 'queued' || j.status === 'running');
     await refreshCredits();
+    await loadLedger();
   } catch (e) {
     if (e.message === 'Please log in.') return;
   }
@@ -405,7 +444,8 @@ async function loadPlans() {
     box.textContent = '';
     for (const p of plans) {
       const b = document.createElement('button');
-      b.textContent = `${money(p.priceCents, 'usd')} → ${p.totalCredits.toLocaleString()} credits (includes ${p.bonusCredits} bonus)`;
+      b.textContent = `${money(p.priceCents, 'usd')} → ${p.totalCredits.toLocaleString()} credits` +
+        (p.bonusCredits ? ` (includes ${p.bonusCredits} bonus)` : '');
       b.onclick = () => buy({ planId: p.id }, b);
       box.appendChild(b);
     }
@@ -428,21 +468,44 @@ $('customBuy').onclick = () =>
   buy({ planId: 'custom', amount: Number($('customAmount').value) }, $('customBuy'));
 
 async function loadOrders() {
-  const rows = await api('orders');
   const box = $('orders');
-  box.textContent = '';
-  if (!rows.length) return;
-  const table = document.createElement('table');
-  table.innerHTML = '<tr><th>Date</th><th>Credits</th><th>Price</th><th>Status</th></tr>';
-  for (const o of rows) {
-    const tr = document.createElement('tr');
-    const when = new Date(o.created_at.replace(' ', 'T') + 'Z').toLocaleString();
-    for (const v of [when, o.bonus_credits ? `${o.credits.toLocaleString()} (incl. ${o.bonus_credits} bonus)` : o.credits.toLocaleString(), money(o.price_cents, o.currency), o.status]) {
-      const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+  try {
+    const rows = await api('orders');
+    box.textContent = '';
+    if (!rows.length) { box.innerHTML = '<p class="empty">No orders yet.</p>'; return; }
+    const table = document.createElement('table');
+    table.innerHTML = '<tr><th>Date</th><th>Credits</th><th>Price</th><th>Status</th></tr>';
+    for (const o of rows) {
+      const tr = document.createElement('tr');
+      const when = new Date(o.created_at.replace(' ', 'T') + 'Z').toLocaleString();
+      for (const v of [when, o.bonus_credits ? `${o.credits.toLocaleString()} (incl. ${o.bonus_credits} bonus)` : o.credits.toLocaleString(), money(o.price_cents, o.currency), o.status]) {
+        const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+      }
+      table.appendChild(tr);
     }
-    table.appendChild(tr);
-  }
-  box.appendChild(table);
+    box.appendChild(table);
+  } catch { /* keep whatever is shown */ }
+}
+
+async function loadLedger() {
+  const box = $('ledger');
+  try {
+    const rows = await api('ledger');
+    box.textContent = '';
+    if (!rows.length) { box.innerHTML = '<p class="empty">No activity yet.</p>'; return; }
+    const table = document.createElement('table');
+    table.innerHTML = '<tr><th>Date</th><th>Activity</th><th>Details</th><th>Credits</th></tr>';
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      const when = new Date(r.created_at.replace(' ', 'T') + 'Z').toLocaleString();
+      const amount = (r.delta > 0 ? '+' : '') + r.delta.toLocaleString();
+      for (const v of [when, REASONS[r.reason] || r.reason, r.detail || '', amount]) {
+        const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+      }
+      table.appendChild(tr);
+    }
+    box.appendChild(table);
+  } catch { /* keep whatever is shown */ }
 }
 
 const tabButtons = [...document.querySelectorAll('[data-tab]')];

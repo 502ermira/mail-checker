@@ -4,6 +4,7 @@ export const PLANS = [
   { id: 'pack_3', priceCents: 300, credits: 3, bonusCredits: 2 }, // 5 total
   { id: 'pack_5', priceCents: 500, credits: 5, bonusCredits: 3 }, // 8 total
   { id: 'pack_7', priceCents: 700, credits: 7, bonusCredits: 5 }, // 12 total
+  { id: 'pack_20', priceCents: 2000, credits: 20, bonusCredits: 5 }, // 25 total
 ];
 
 export const CUSTOM = {

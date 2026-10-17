@@ -9,7 +9,7 @@ const maxWaitMs = () => Number(process.env.BULK_MAX_WAIT_HOURS || 6) * 3600 * 10
 const MAX_UPLOAD_ATTEMPTS = 3;
 const minPerFile = () => Number(process.env.BULK_MIN_PER_FILE || 2001);
 const costPerEmail = () => Number(process.env.BULK_COST_PER_EMAIL || 0);
-const DEFINITIVE = new Set(['has_facebook', 'no_facebook']);
+const DEFINITIVE = new Set(['valid', 'invalid', 'catch_all']);
 
 let pausedUntil = 0;
 let started = false;
@@ -129,7 +129,7 @@ const applyResults = db.transaction((batch, activated, unregistered) => {
   const cache = db.prepare('INSERT OR REPLACE INTO result_cache (email, status, checked_at) VALUES (?, ?, ?)');
 
   for (const it of items) {
-    const result = act.has(it.email) ? 'has_facebook' : unreg.has(it.email) ? 'no_facebook' : null;
+    const result = act.has(it.email) ? 'valid' : unreg.has(it.email) ? 'invalid' : null;
     if (result) {
       done.run(result, it.id);
       if (cacheMs() > 0) cache.run(it.email, result, Date.now());

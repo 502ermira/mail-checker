@@ -26,10 +26,12 @@ if (process.env.MOCK_PROVIDER !== '1' && (!process.env.BULK_ACCOUNT || !process.
 }
 
 const app = express();
+app.disable('x-powered-by');
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use('/api/jobs', express.json({ limit: '10mb' }));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
+app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public')));
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -45,6 +47,7 @@ function setSession(res, user) {
   });
 }
 
+// NOTE: the database column is still called "email", but it now holds the USERNAME.
 function requireAuth(req, res, next) {
   try {
     const { uid } = jwt.verify(req.cookies.session, process.env.JWT_SECRET);
@@ -62,27 +65,12 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-app.post('/api/signup', authLimiter, async (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase();
-  const password = String(req.body.password || '');
-  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
-  if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
-  if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email))
-    return res.status(409).json({ error: 'An account with this email already exists.' });
-
-  const hash = await bcrypt.hash(password, 10);
-  const isAdmin = email === (process.env.ADMIN_EMAIL || '').toLowerCase() ? 1 : 0;
-  const info = db.prepare('INSERT INTO users (email, password_hash, is_admin) VALUES (?, ?, ?)').run(email, hash, isAdmin);
-  setSession(res, { id: info.lastInsertRowid });
-  res.json({ ok: true });
-});
-
 app.post('/api/login', authLimiter, async (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase();
+  const username = String(req.body.username || '').trim().toLowerCase();
   const password = String(req.body.password || '');
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(username);
   if (!user || !(await bcrypt.compare(password, user.password_hash)))
-    return res.status(401).json({ error: 'Wrong email or password.' });
+    return res.status(401).json({ error: 'Wrong username or password.' });
   setSession(res, user);
   res.json({ ok: true });
 });
@@ -92,8 +80,21 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/change-password', requireAuth, authLimiter, async (req, res) => {
+  const current = String(req.body.currentPassword || '');
+  const next = String(req.body.newPassword || '');
+  if (next.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+  if (next.length > 72) return res.status(400).json({ error: 'New password is too long (72 characters max).' });
+  const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+  if (!(await bcrypt.compare(current, row.password_hash)))
+    return res.status(400).json({ error: 'Current password is wrong.' });
+  const hash = await bcrypt.hash(next, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
+  res.json({ ok: true });
+});
+
 app.get('/api/me', requireAuth, (req, res) => {
-  res.json({ email: req.user.email, isAdmin: !!req.user.is_admin, credits: getBalance(req.user.id) });
+  res.json({ username: req.user.email, isAdmin: !!req.user.is_admin, credits: getBalance(req.user.id) });
 });
 
 app.post('/api/verify', requireAuth, async (req, res) => {
@@ -116,7 +117,7 @@ app.post('/api/verify', requireAuth, async (req, res) => {
     addCredits(req.user.id, 1, 'refund_provider_error', email);
     console.error('provider error:', e.message);
     if (e.alertAdmin) console.error('!!! ACTION NEEDED: top up or fix your provider account:', e.message);
-    res.status(502).json({ error: 'Verification is temporarily unavailable. Your credit was refunded.' });
+    res.status(502).json({ error: 'This check is temporarily unavailable. Your credit was refunded.' });
   }
 });
 
@@ -128,13 +129,28 @@ app.get('/api/history', requireAuth, (req, res) => {
   res.json(rows);
 });
 
+app.get('/api/ledger', requireAuth, (req, res) => {
+  const rows = db.prepare(`
+    SELECT l.delta, l.reason, l.created_at,
+           CASE
+             WHEN l.reason IN ('single_check', 'refund_not_charged', 'refund_provider_error') THEN l.ref
+             WHEN l.reason IN ('job_reserve', 'job_refund') THEN j.filename
+           END AS detail
+    FROM credit_ledger l
+    LEFT JOIN jobs j ON l.ref = 'job:' || j.id AND j.user_id = l.user_id
+    WHERE l.user_id = ?
+    ORDER BY l.id DESC LIMIT 200
+  `).all(req.user.id);
+  res.json(rows);
+});
+
 app.post('/api/admin/grant', requireAuth, requireAdmin, (req, res) => {
-  const email = String(req.body.email || '').trim().toLowerCase();
+  const username = String(req.body.username || '').trim().toLowerCase();
   const amount = parseInt(req.body.amount, 10);
   if (!Number.isInteger(amount) || amount === 0 || Math.abs(amount) > 10_000_000)
     return res.status(400).json({ error: 'Amount must be a whole number.' });
-  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (!user) return res.status(404).json({ error: 'No user with that email.' });
+  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(username);
+  if (!user) return res.status(404).json({ error: 'No user with that username.' });
   addCredits(user.id, amount, 'manual_grant', `by:${req.user.email}`);
   res.json({ ok: true, credits: getBalance(user.id) });
 });

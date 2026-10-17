@@ -185,6 +185,7 @@
           <button id="customBuy">Add funds (1 credit per $1, no bonus)</button>
         </div>
         <div id="buyMsg" class="msg" role="status"></div>
+        <div id="payBox" class="hidden" style="margin-top:16px;padding:16px;border:1px solid #ddd;border-radius:8px"></div>
       </section>
       <section>
         <h2>Order history</h2>
@@ -467,6 +468,7 @@ async function buy(payload, btn) {
   say('buyMsg', 'Processing…');
   try {
     const r = await api('purchase', payload);
+    if (r.crypto) { say('buyMsg', ''); showPayment(r.crypto); btn.disabled = false; return; }
     if (r.redirectUrl) { location.href = r.redirectUrl; return; }
     say('buyMsg', `Added ${r.added.toLocaleString()} credits. You now have ${r.credits.toLocaleString()}.`);
     await refresh();
@@ -495,6 +497,54 @@ async function loadOrders() {
     }
     box.appendChild(table);
   } catch { /* keep whatever is shown */ }
+}
+
+let payTimer = null;
+function showPayment(c) {
+  clearInterval(payTimer);
+  const box = $('payBox');
+  box.classList.remove('hidden');
+  box.innerHTML = `
+    <h3>Pay with USDT (TRC-20)</h3>
+    <img id="payQr" alt="Wallet address QR code" width="200" height="200">
+    <p>Send <strong>exactly</strong> <code id="payAmount"></code> USDT to:</p>
+    <p><code id="payAddress" style="word-break:break-all"></code></p>
+    <div class="row">
+      <button id="copyAmount" class="small">Copy amount</button>
+      <button id="copyAddress" class="small">Copy address</button>
+    </div>
+    <p class="hint"><strong>Use only the TRON (TRC-20) network, with USDT.</strong> Other networks or coins are lost for good.
+    The amount must match exactly to the last digit, so make sure the amount <em>received</em> is exact (pay any exchange or wallet fee on top).
+    The QR code contains the address only, so type the amount yourself.</p>
+    <p id="payStatus" class="hint"></p>`;
+  $('payQr').src = c.qr;
+  $('payAmount').textContent = c.amount;
+  $('payAddress').textContent = c.address;
+  $('copyAmount').onclick = () => navigator.clipboard.writeText(c.amount);
+  $('copyAddress').onclick = () => navigator.clipboard.writeText(c.address);
+
+  const tick = async () => {
+    try {
+      const o = await api('orders/' + c.id);
+      if (o.status === 'paid') {
+        clearInterval(payTimer);
+        $('payStatus').textContent = `Payment received. ${o.credits.toLocaleString()} credits added.`;
+        await refresh();
+        return;
+      }
+      if (o.status !== 'pending') {
+        clearInterval(payTimer);
+        $('payStatus').textContent = 'This payment request expired. Start a new one.';
+        return;
+      }
+      const left = o.expiresAt - Date.now();
+      $('payStatus').textContent = left > 0
+        ? `Waiting for payment… ${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')} left`
+        : 'Time is up. If you already sent the payment in time, it will be credited shortly.';
+    } catch { /* keep trying */ }
+  };
+  tick();
+  payTimer = setInterval(tick, 5000);
 }
 
 async function loadLedger() {

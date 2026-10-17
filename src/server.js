@@ -17,6 +17,7 @@ import { registerJobRoutes } from './jobRoutes.js';
 import { registerBillingRoutes } from './billingRoutes.js';
 import { startRetention } from './retention.js';
 import { startBackups } from './backup.js';
+import { startPaymentWatcher } from './paymentWatcher.js';
 
 const secret = process.env.JWT_SECRET || '';
 if (secret.length < 32 || ['change-me', 'secret'].includes(secret)) {
@@ -28,6 +29,11 @@ if (process.env.MOCK_PROVIDER !== '1') {
   for (const k of ['BULK_ACCOUNT', 'BULK_PASS', 'BULK_API_BASE', 'BULK_TYPE_FB', 'PROVIDER_KEY', 'PROVIDER_API_BASE']) {
     if (!process.env[k]) { console.error(`Set ${k} in your .env file.`); process.exit(1); }
   }
+}
+
+if (process.env.PAYMENT_PROVIDER === 'tron' && !/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(process.env.TRON_ADDRESS || '')) {
+  console.error('Set a valid TRON_ADDRESS in your .env file.');
+  process.exit(1);
 }
 
 const app = express();
@@ -213,4 +219,5 @@ app.listen(port, () => {
   startWorker();
   startRetention();
   startBackups();
+  startPaymentWatcher();
 });

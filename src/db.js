@@ -104,4 +104,12 @@ const orderCols = db.prepare('PRAGMA table_info(orders)').all().map((c) => c.nam
 if (!orderCols.includes('bonus_credits'))
   db.exec('ALTER TABLE orders ADD COLUMN bonus_credits INTEGER NOT NULL DEFAULT 0');
 
+
+const oc = () => db.prepare('PRAGMA table_info(orders)').all().map((c) => c.name);
+if (!oc().includes('pay_amount')) db.exec('ALTER TABLE orders ADD COLUMN pay_amount INTEGER');
+if (!oc().includes('expires_at')) db.exec('ALTER TABLE orders ADD COLUMN expires_at INTEGER');
+if (!oc().includes('tx_id')) db.exec('ALTER TABLE orders ADD COLUMN tx_id TEXT');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_tx ON orders(tx_id) WHERE tx_id IS NOT NULL');
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_pending_amount ON orders(pay_amount) WHERE status = 'pending'");
+
 export default db;

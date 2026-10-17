@@ -15,6 +15,7 @@ import { checkEmail, startWorker } from './worker.js';
 import { registerJobRoutes } from './jobRoutes.js';
 import { registerBillingRoutes } from './billingRoutes.js';
 import { startRetention } from './retention.js';
+import { startBackups } from './backup.js';
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me') {
   console.error('Set a real JWT_SECRET in your .env file.');
@@ -176,4 +177,5 @@ app.listen(port, () => {
   console.log(`Running on http://localhost:${port}`);
   startWorker();
   startRetention();
+  startBackups();
 });
